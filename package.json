@@ -7,7 +7,7 @@
     "node": "22.x"
   },
   "scripts": {
-    "install:all": "npm ci --prefix server && npm ci --prefix client",
+    "install:all": "npm ci --include=dev --prefix server && npm ci --include=dev --prefix client",
     "build": "npm run build --prefix server && npm run build --prefix client"
   }
 }
