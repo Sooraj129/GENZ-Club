@@ -1,0 +1,118 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens — change colours here, not in components.
+ * Used in classes as e.g. bg-brand-600, text-ink-2, border-hairline.
+ */
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Brand (indigo) — buttons, links, active navigation */
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+
+  /* Sidebar */
+  --color-nav: #0b1020;
+  --color-nav-2: #141a33;
+
+  /* Status (reserved for state — always shown with an icon + text label) */
+  --color-good: #0ca30c;
+  --color-good-ink: #006300;
+  --color-warning: #f59e0b;
+  --color-warning-ink: #92400e;
+  --color-critical: #dc2626;
+  --color-critical-ink: #991b1b;
+
+  /* Chart series: fixed per entity — PS5 is always slot 1 (blue), PS4 slot 2 (orange) */
+  --color-series-1: #2a78d6;
+  --color-series-2: #eb6834;
+
+  /* Surfaces and text */
+  --color-surface: #ffffff;
+  --color-plane: #f4f6fb;
+  --color-ink: #0f172a;
+  --color-ink-2: #475569;
+  --color-ink-muted: #64748b;
+  --color-hairline: #e2e8f0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-plane);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Scrollbars — thin and rounded instead of the default chunky OS bars.
+ * Modern Chrome/Edge/Brave/Firefox use scrollbar-color/width; the ::-webkit
+ * rules are a fallback for older WebKit browsers (Safari).
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent; /* thumb, track */
+}
+*:hover {
+  scrollbar-color: #94a3b8 transparent;
+}
+
+/* Dark areas (sidebar): the bar stays hidden until you hover the menu. */
+.scroll-dark {
+  scrollbar-color: transparent transparent;
+}
+.scroll-dark:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+  }
+  .scroll-dark::-webkit-scrollbar-thumb {
+    background-color: transparent;
+  }
+  .scroll-dark:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.25);
+  }
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  .print-area {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 auto !important;
+  }
+}

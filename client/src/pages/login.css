@@ -1,0 +1,279 @@
+/*
+ * Login "level" — CSS-only 3D scene (no WebGL, so it's light on front-desk PCs).
+ *
+ *   .lv-scene       full-screen dark space background
+ *   .lv-stars       twinkling star field
+ *   .lv-sun         glowing horizon sun
+ *   .lv-floor       neon perspective grid scrolling towards the viewer
+ *   .lv-shape       floating extruded PlayStation symbols (△ ○ ✕ □)
+ *   .lv-card        glass card that tilts in 3D with the mouse
+ *   .lv-border      rotating neon gradient border around the card
+ *
+ * Everything animated stops for users who prefer reduced motion.
+ */
+
+.lv-scene {
+  position: relative;
+  min-height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 110%, rgba(168, 85, 247, 0.35), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 50% -10%, rgba(59, 130, 246, 0.25), transparent 60%),
+    linear-gradient(180deg, #05060f 0%, #0b0b24 55%, #1a0b2e 100%);
+  perspective: 900px;
+}
+
+/* ------------------------------------------------------------------ stars */
+.lv-stars,
+.lv-stars::after {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, #fff, transparent),
+    radial-gradient(1px 1px at 30% 70%, #c4b5fd, transparent),
+    radial-gradient(1.5px 1.5px at 55% 15%, #fff, transparent),
+    radial-gradient(1px 1px at 75% 40%, #93c5fd, transparent),
+    radial-gradient(1px 1px at 85% 80%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 20% 50%, #f0abfc, transparent),
+    radial-gradient(1px 1px at 65% 60%, #fff, transparent),
+    radial-gradient(1px 1px at 92% 10%, #fff, transparent),
+    radial-gradient(1px 1px at 40% 35%, #a5b4fc, transparent);
+  animation: lv-twinkle 4s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+.lv-stars::after {
+  content: '';
+  transform: translate(37%, 23%) rotate(40deg);
+  animation-delay: -2s;
+}
+@keyframes lv-twinkle {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+
+/* ------------------------------------------------------------------ sun */
+.lv-sun {
+  position: absolute;
+  left: 50%;
+  bottom: 34%;
+  width: min(46vw, 420px);
+  aspect-ratio: 1;
+  transform: translate(-50%, 50%);
+  border-radius: 50%;
+  background: linear-gradient(180deg, #f472b6 0%, #a855f7 45%, #6366f1 100%);
+  /* horizontal "scanline" cuts in the lower half */
+  -webkit-mask-image: linear-gradient(180deg, #000 50%, transparent 50%, transparent 54%, #000 54%, #000 60%, transparent 60%, transparent 65%, #000 65%, #000 72%, transparent 72%, transparent 78%, #000 78%);
+  mask-image: linear-gradient(180deg, #000 50%, transparent 50%, transparent 54%, #000 54%, #000 60%, transparent 60%, transparent 65%, #000 65%, #000 72%, transparent 72%, transparent 78%, #000 78%);
+  filter: drop-shadow(0 0 40px rgba(236, 72, 153, 0.55));
+  opacity: 0.55;
+  animation: lv-pulse 6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes lv-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.7; }
+}
+
+/* ------------------------------------------------------------------ grid floor */
+.lv-floor {
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  bottom: -10%;
+  height: 60%;
+  transform-origin: 50% 0;
+  transform: rotateX(72deg);
+  background-image:
+    linear-gradient(rgba(168, 85, 247, 0.75) 2px, transparent 2px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.75) 2px, transparent 2px);
+  background-size: 64px 64px;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 35%, #000 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 35%, #000 100%);
+  animation: lv-floor 1.6s linear infinite;
+  pointer-events: none;
+}
+.lv-floor::after {
+  /* glow along the horizon line */
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #e879f9, #818cf8, transparent);
+  box-shadow: 0 0 24px 6px rgba(232, 121, 249, 0.6);
+}
+@keyframes lv-floor {
+  from { background-position: 0 0; }
+  to { background-position: 0 64px; }
+}
+
+/* ------------------------------------------------------------------ PlayStation symbols */
+.lv-shape {
+  position: absolute;
+  width: var(--size, 64px);
+  height: var(--size, 64px);
+  transform-style: preserve-3d;
+  animation:
+    lv-float var(--float, 7s) ease-in-out infinite,
+    lv-spin var(--spin, 14s) linear infinite;
+  animation-delay: var(--delay, 0s);
+  pointer-events: none;
+}
+/* Each symbol is drawn several times, pushed back in Z — that stack reads as a solid 3D extrusion. */
+.lv-shape > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.lv-shape > svg:first-child {
+  filter: drop-shadow(0 0 10px var(--glow)) drop-shadow(0 0 22px var(--glow));
+}
+@keyframes lv-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -26px; }
+}
+@keyframes lv-spin {
+  from { transform: rotateX(15deg) rotateY(0deg); }
+  to { transform: rotateX(15deg) rotateY(360deg); }
+}
+
+/* ------------------------------------------------------------------ logo */
+.lv-logo {
+  transform-style: preserve-3d;
+  animation: lv-logo 6s ease-in-out infinite;
+}
+@keyframes lv-logo {
+  0%, 100% { transform: rotateY(-18deg) rotateX(8deg); }
+  50% { transform: rotateY(18deg) rotateX(-8deg); }
+}
+
+.lv-title {
+  background: linear-gradient(90deg, #a5b4fc, #f0abfc, #67e8f9, #a5b4fc);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: lv-shine 6s linear infinite;
+}
+@keyframes lv-shine {
+  from { background-position: 0% 50%; }
+  to { background-position: 300% 50%; }
+}
+
+/* ------------------------------------------------------------------ card */
+.lv-card-wrap {
+  perspective: 1000px;
+}
+.lv-card {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.15s ease-out;
+  will-change: transform;
+}
+.lv-border {
+  position: absolute;
+  inset: -2px;
+  border-radius: 1.6rem;
+  overflow: hidden;
+  z-index: -1;
+}
+.lv-border::before {
+  content: '';
+  position: absolute;
+  inset: -60%;
+  background: conic-gradient(from 0deg, #6366f1, #a855f7, #ec4899, #22d3ee, #6366f1);
+  animation: lv-rotate 5s linear infinite;
+}
+@keyframes lv-rotate {
+  to { transform: rotate(360deg); }
+}
+.lv-glass {
+  border-radius: 1.5rem;
+  background: rgba(10, 12, 32, 0.82);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow:
+    0 30px 80px -20px rgba(99, 102, 241, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.lv-input {
+  width: 100%;
+  height: 46px;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.7);
+  color: #fff;
+  padding: 0 2.75rem;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.lv-input::placeholder {
+  color: #64748b;
+}
+.lv-input:focus {
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25), 0 0 18px rgba(139, 92, 246, 0.35);
+}
+.lv-input[aria-invalid='true'] {
+  border-color: #f87171;
+}
+
+.lv-start {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
+  background-size: 200% 100%;
+  box-shadow: 0 10px 30px -8px rgba(168, 85, 247, 0.7);
+  transition: background-position 0.4s, transform 0.15s, box-shadow 0.2s;
+  letter-spacing: 0.18em;
+}
+.lv-start:hover:not(:disabled) {
+  background-position: 100% 0;
+  box-shadow: 0 12px 38px -6px rgba(236, 72, 153, 0.75);
+}
+.lv-start:active:not(:disabled) {
+  transform: translateY(1px) scale(0.99);
+}
+.lv-start::after {
+  /* light sweep across the button */
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  left: -60%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: lv-sweep 3.2s ease-in-out infinite;
+}
+@keyframes lv-sweep {
+  0%, 60% { left: -60%; }
+  100% { left: 130%; }
+}
+
+.lv-blink {
+  animation: lv-blink 1.2s steps(2, start) infinite;
+}
+@keyframes lv-blink {
+  to { visibility: hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv-stars,
+  .lv-stars::after,
+  .lv-sun,
+  .lv-floor,
+  .lv-shape,
+  .lv-logo,
+  .lv-title,
+  .lv-border::before,
+  .lv-start::after,
+  .lv-blink {
+    animation: none !important;
+  }
+  .lv-card {
+    transition: none;
+  }
+}
