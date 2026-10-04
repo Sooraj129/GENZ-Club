@@ -5,3 +5,8 @@ dist/
 *.log
 .pglite/
 coverage/
+
+# any other env files hold secrets — only the examples and the (secret-free) client production config are committed
+.env.*
+!.env.example
+!client/.env.production

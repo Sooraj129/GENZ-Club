@@ -22,8 +22,19 @@ import { uniqueKey } from '../utils/id';
 
 // ----------------------------------------------------------------- configuration
 
-/** Base URL of the API server, e.g. http://localhost:5000 (no trailing slash). */
-export const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+/**
+ * Base URL of the API server, e.g. http://localhost:5000 (no trailing slash).
+ * An empty VITE_API_URL means "same domain as the web app" (Vercel: /api).
+ * Not set at all → local development default http://localhost:5000.
+ */
+export const API_ORIGIN = (import.meta.env.VITE_API_URL ?? 'http://localhost:5000').replace(/\/$/, '');
+
+/**
+ * How live updates arrive:
+ *   'socket' — Socket.IO push (own server, e.g. local development)
+ *   'poll'   — refresh every 10 s (Vercel, where WebSockets aren't available)
+ */
+export const REALTIME_MODE: 'socket' | 'poll' = import.meta.env.VITE_REALTIME === 'poll' ? 'poll' : 'socket';
 
 const debugEnabled = (() => {
   if (import.meta.env.DEV) return true;

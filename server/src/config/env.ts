@@ -15,6 +15,8 @@ const envSchema = z.object({
   CLIENT_ORIGIN: z.string().default('http://localhost:5173'),
   SESSION_MONITOR_INTERVAL_MS: z.coerce.number().int().min(1000).default(15000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  /** Vercel sends this as "Authorization: Bearer <secret>" when it runs the scheduled job. */
+  CRON_SECRET: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -29,6 +31,12 @@ if (!parsed.success) {
 export const env = {
   ...parsed.data,
   clientOrigins: parsed.data.CLIENT_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean),
+  /**
+   * True on Vercel (serverless functions). There is no long-running process there,
+   * so no Socket.IO server and no 15-second timer — the session monitor runs on
+   * incoming requests instead (see middleware/lazySessionMonitor.ts).
+   */
+  serverless: process.env.VERCEL === '1',
 };
 
 /** All business operations run in this timezone. */

@@ -197,6 +197,28 @@ There are 60 tests covering billing (PS4/PS5 at 30/60/90/120 min), booking rules
 
 Each test file runs against its own throwaway real PostgreSQL (PGlite over the wire protocol), so the production `pg` driver, constraints and transactions are exercised as-is.
 
+## Deploying to Vercel
+
+The whole app runs on one Vercel project. The React app is served as static files, and the Express API runs as a serverless function at `/api` ([api/index.js](api/index.js)). Everything is configured in [vercel.json](vercel.json), including the Mumbai region (`bom1`, next to the Supabase database), the build commands, the SPA routing, and a daily cron job.
+
+**Differences from running your own server:**
+- **Session timer:** there's no 15-second background timer. The session monitor runs on incoming requests instead, at most every 10 s ([middleware/lazySessionMonitor.ts](server/src/middleware/lazySessionMonitor.ts)), plus once a day via Vercel Cron.
+- **Live updates:** there's no Socket.IO. Screens refresh every 10 s (`VITE_REALTIME=poll` in [client/.env.production](client/.env.production)).
+- **Billing:** unchanged and exact. Expired sessions are always charged to their booked end time.
+- **Database connection:** use Supabase's **connection pooler** URL (port 6543). Vercel can't reach the direct `db.<ref>.supabase.co` address, which is IPv6-only.
+
+**Steps:**
+1. Push the repo to GitHub.
+2. In Vercel, **Add New → Project** and import the repo. Leave the root directory as the repo root and the framework as "Other"; `vercel.json` sets the rest.
+3. Under **Environment Variables**, add:
+   - `NODE_ENV=production`
+   - `DATABASE_URL` set to the pooler URL: `postgresql://postgres.<ref>:<url-encoded-password>@aws-0-<region>.pooler.supabase.com:6543/postgres`
+   - `DATABASE_SSL=true`
+   - `DB_POOL_MAX=3`
+   - `JWT_SECRET` with 32+ random characters
+   - `CRON_SECRET`, any random string
+4. Deploy. Run migrations from your PC (`npm run migrate` in `server/`) whenever `server/migrations` changes. The function doesn't run them.
+
 ## Production notes
 
 - **Build:** `cd server && npm run build && npm start`, and `cd client && npm run build` (serve `client/dist` from any static host). Set `CLIENT_ORIGIN` to the frontend's URL.

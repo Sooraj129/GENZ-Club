@@ -6,8 +6,9 @@ import express from 'express';
 import helmet from 'helmet';
 import { pool } from './config/db.js';
 import { env } from './config/env.js';
-import { startSessionMonitor, stopSessionMonitor } from './jobs/sessionMonitor.js';
+import { runSessionMonitorTick, startSessionMonitor, stopSessionMonitor } from './jobs/sessionMonitor.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { lazySessionMonitor } from './middleware/lazySessionMonitor.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { router } from './routes/index.js';
 import { closeSockets, initSockets } from './sockets/index.js';
@@ -29,6 +30,18 @@ export function createApp() {
   );
   app.use(requestLogger);
   app.use(express.json({ limit: '100kb' }));
+
+  // Scheduled run of the session monitor (Vercel Cron). Protected by CRON_SECRET.
+  app.get('/api/cron/session-monitor', async (req, res) => {
+    if (!env.CRON_SECRET || req.headers.authorization !== `Bearer ${env.CRON_SECRET}`) {
+      return res.status(401).json({ success: false, message: 'Unauthorized', requestId: req.requestId });
+    }
+    res.json({ success: true, data: await runSessionMonitorTick() });
+  });
+
+  // No long-running process on Vercel → settle sessions as requests come in.
+  if (env.serverless) app.use('/api', lazySessionMonitor);
+
   app.use('/api', router);
   app.use(notFoundHandler);
   app.use(errorHandler);

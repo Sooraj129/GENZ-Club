@@ -1,0 +1,13 @@
+{
+  "name": "genz-club",
+  "private": true,
+  "description": "Game Center management system — Vercel deployment root (client + API function)",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "install:all": "npm ci --prefix server && npm ci --prefix client",
+    "build": "npm run build --prefix server && npm run build --prefix client"
+  }
+}

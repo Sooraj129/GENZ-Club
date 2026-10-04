@@ -14,7 +14,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { io, type Socket } from 'socket.io-client';
 import { toast } from 'sonner';
 import { api } from '../api';
-import { API_ORIGIN } from '../api/client';
+import { API_ORIGIN, REALTIME_MODE } from '../api/client';
 import { syncServerTime } from '../utils/serverClock';
 import { useAuth } from './AuthContext';
 
@@ -38,6 +38,10 @@ const INVALIDATIONS: Record<string, string[][]> = {
   'dashboard:updated': [['dashboard'], ['reports']],
 };
 
+/** Poll mode: which live data is refreshed, and how often. */
+const POLL_KEYS = ['sessions', 'consoles', 'dashboard', 'invoices', 'memberships'];
+const POLL_INTERVAL_MS = 10_000;
+
 type ConnectionState = 'connecting' | 'connected' | 'disconnected';
 const SocketContext = createContext<{ status: ConnectionState }>({ status: 'connecting' });
 
@@ -46,8 +50,33 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<ConnectionState>('connecting');
 
+  // ---- 'poll' mode (Vercel): refresh live data every 10 s while the tab is visible.
+  // Each refresh also lets the server settle any sessions that came due.
   useEffect(() => {
-    if (!token) return;
+    if (!token || REALTIME_MODE !== 'poll') return;
+    const tick = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        await api.auth.syncTime(); // heartbeat + server clock sync
+        setStatus('connected');
+        for (const key of POLL_KEYS) queryClient.invalidateQueries({ queryKey: [key] });
+      } catch {
+        setStatus('disconnected');
+      }
+    };
+    void tick();
+    const timer = setInterval(tick, POLL_INTERVAL_MS);
+    const onVisible = () => document.visibilityState === 'visible' && void tick();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [token, queryClient]);
+
+  // ---- 'socket' mode: instant push over Socket.IO.
+  useEffect(() => {
+    if (!token || REALTIME_MODE !== 'socket') return;
     // Connects to the API server's own port (VITE_API_URL), same as REST calls.
     const socket: Socket = io(API_ORIGIN, {
       auth: { token },
