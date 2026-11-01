@@ -4,6 +4,8 @@ import { sessionService } from '../services/sessionService.js';
 import { idParamSchema } from '../validators/common.js';
 import {
   createSessionSchema,
+  deleteSessionSchema,
+  editSessionAmountSchema,
   extendSessionSchema,
   quoteSessionSchema,
   resumeSessionSchema,
@@ -82,6 +84,26 @@ export const sessionController = {
     const { id } = parse(idParamSchema, req.params);
     const { console_id } = parse(resumeSessionSchema, req.body ?? {});
     ok(res, await sessionService.resume(id, console_id));
+  },
+
+  /** PUT /api/sessions/:id/amount — admin corrects a finished session's amount (recorded). */
+  async editAmount(req: Request, res: Response) {
+    const { id } = parse(idParamSchema, req.params);
+    const { amount, reason } = parse(editSessionAmountSchema, req.body);
+    ok(res, await sessionService.editAmount(id, amount, reason, currentUser(req)));
+  },
+
+  /** DELETE /api/sessions/:id — admin deletes a session (kept as Deleted, recorded). */
+  async remove(req: Request, res: Response) {
+    const { id } = parse(idParamSchema, req.params);
+    const { reason } = parse(deleteSessionSchema, req.body ?? {});
+    ok(res, await sessionService.remove(id, reason, currentUser(req)));
+  },
+
+  /** GET /api/sessions/:id/changes — who edited/deleted, when, why. */
+  async changes(req: Request, res: Response) {
+    const { id } = parse(idParamSchema, req.params);
+    ok(res, await sessionService.changes(id));
   },
 
   async endPreview(req: Request, res: Response) {

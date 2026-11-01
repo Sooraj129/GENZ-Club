@@ -21,7 +21,9 @@ import type pg from 'pg';
 import { withTransaction } from '../config/db.js';
 import { consoleRepository } from '../repositories/consoleRepository.js';
 import { customerRepository } from '../repositories/customerRepository.js';
+import { invoiceRepository } from '../repositories/invoiceRepository.js';
 import { membershipRepository } from '../repositories/membershipRepository.js';
+import { paymentRepository } from '../repositories/paymentRepository.js';
 import { sessionRepository, type SessionFilters } from '../repositories/sessionRepository.js';
 import { EventBatch } from '../sockets/index.js';
 import type { AuthUser, GameConsole, Membership, Session, SessionStatus } from '../types/index.js';
@@ -531,5 +533,115 @@ export const sessionService = {
     });
     events.flush();
     return this.get(id);
+  },
+
+  // ------------------------------------------------------------------ corrections (admin)
+
+  /**
+   * Corrects the amount of a finished session. The invoice is updated to match
+   * (same tax rate, discount cleared) and its payment status recalculated.
+   * Every edit is recorded in session_amount_changes with the reason.
+   */
+  async editAmount(id: string, newAmount: number, reason: string, user: AuthUser) {
+    const events = new EventBatch();
+    await withTransaction(async (client) => {
+      const { session } = await lockSession(id, client);
+      if (session.deleted_at) throw badRequest('This session was deleted.');
+      if (session.status !== 'COMPLETED' && session.status !== 'EXPIRED') {
+        throw badRequest('Only finished sessions have an amount to edit. End the session first.');
+      }
+      const oldAmount = session.final_amount ?? 0;
+      if (Math.round(oldAmount * 100) === Math.round(newAmount * 100)) throw badRequest('The amount is unchanged.');
+
+      const found = await invoiceRepository.findBySession(id, client);
+      const invoice = found ? await invoiceRepository.lockById(found.id, client) : null;
+      if (invoice) {
+        if (invoice.payment_status === 'CANCELLED') throw badRequest("This session's invoice is cancelled.");
+        const paid = await paymentRepository.sumForInvoice(invoice.id, client);
+        // Keep the tax rate the invoice was issued with.
+        const taxable = invoice.subtotal - invoice.discount;
+        const taxPercent = taxable > 0 ? (invoice.tax / taxable) * 100 : (await settingsService.get(client)).tax_percent;
+        const totals = BillingService.invoiceTotals(newAmount, 0, taxPercent);
+        if (paid > totals.total) {
+          throw badRequest(`₹${paid} has already been paid on this invoice, so the amount can't be lower than that.`);
+        }
+        await invoiceRepository.update(
+          invoice.id,
+          { subtotal: totals.subtotal, discount: 0, tax: totals.tax, total: totals.total, payment_status: BillingService.paymentStatus(totals.total, paid) },
+          client,
+        );
+        events.add('invoice:updated', { invoice_id: invoice.id });
+      }
+      await sessionRepository.update(id, { final_amount: newAmount }, client);
+      await sessionRepository.insertChange(
+        { session_id: id, invoice_id: invoice?.id ?? null, action: 'EDIT', old_amount: oldAmount, new_amount: newAmount, reason, changed_by: user.id },
+        client,
+      );
+      events.add('session:updated', { session_id: id });
+      events.add('dashboard:updated');
+    });
+    events.flush();
+    return this.get(id);
+  },
+
+  /**
+   * "Deletes" a session: it's cancelled and marked deleted (never erased), its
+   * invoice is cancelled, the console is freed, and membership hours it used are
+   * given back. Not allowed once money has been collected for it.
+   */
+  async remove(id: string, reason: string, user: AuthUser) {
+    const events = new EventBatch();
+    await withTransaction(async (client) => {
+      const { session } = await lockSession(id, client);
+      if (session.deleted_at) throw badRequest('This session was already deleted.');
+
+      const found = await invoiceRepository.findBySession(id, client);
+      const invoice = found ? await invoiceRepository.lockById(found.id, client) : null;
+      if (invoice) {
+        const paid = await paymentRepository.sumForInvoice(invoice.id, client);
+        if (paid > 0) throw badRequest(`₹${paid} has been paid for this session, so it can't be deleted. Edit the amount instead.`);
+      }
+
+      // Give back membership hours this session used.
+      if (session.membership_id && session.membership_minutes) {
+        await membershipRepository.lockById(session.membership_id, client);
+        await membershipRepository.addMinutesUsed(session.membership_id, -session.membership_minutes, client);
+        events.add('membership:updated', { membership_id: session.membership_id, customer_id: session.customer_id });
+      }
+
+      await sessionRepository.update(
+        id,
+        { status: 'CANCELLED', paused_at: null, deleted_at: now(), deleted_by: user.id, delete_reason: reason },
+        client,
+      );
+      if (invoice && invoice.payment_status !== 'CANCELLED') {
+        await invoiceRepository.update(invoice.id, { payment_status: 'CANCELLED' }, client);
+        events.add('invoice:updated', { invoice_id: invoice.id });
+      }
+      await sessionRepository.insertChange(
+        {
+          session_id: id,
+          invoice_id: invoice?.id ?? null,
+          action: 'DELETE',
+          old_amount: session.final_amount ?? session.estimated_amount,
+          new_amount: 0,
+          reason,
+          changed_by: user.id,
+        },
+        client,
+      );
+      events.add('session:cancelled', { session_id: id });
+      events.add('session:updated', { session_id: id });
+      await syncConsole(session.console_id, client, events);
+      events.add('dashboard:updated');
+    });
+    events.flush();
+    return this.get(id);
+  },
+
+  /** Recorded edits/deletions for a session. */
+  async changes(id: string) {
+    await this.get(id);
+    return sessionRepository.listChanges(id);
   },
 };

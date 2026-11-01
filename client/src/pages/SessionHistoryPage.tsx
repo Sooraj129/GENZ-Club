@@ -1,9 +1,13 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { History } from 'lucide-react';
+import { History, Pencil, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { api } from '../api';
 import { errorMessage } from '../api/client';
+import { ChangesDialog, DeleteSessionDialog, EditAmountDialog } from '../components/SessionCorrections';
 import { ConsoleTypeTag, PaymentStatusBadge, SessionStatusBadge } from '../components/StatusBadge';
+import { useAuth } from '../contexts/AuthContext';
+import type { Session } from '../types';
 import { Button, Card, EmptyState, ErrorState, Field, Input, PageHeader, Pagination, Select, Spinner, Table, Td, Th } from '../components/ui';
 import { useDebounce } from '../hooks/useDebounce';
 import { useUrlFilters } from '../hooks/useUrlFilters';
@@ -17,6 +21,11 @@ export default function SessionHistoryPage() {
   const customer = useDebounce(filters.customer, 300);
   const phone = useDebounce(filters.phone, 300);
   const consoles = useQuery({ queryKey: ['consoles'], queryFn: api.consoles.list });
+  // Admin corrections (each needs a reason and is recorded on the server).
+  const { isAdmin } = useAuth();
+  const [editing, setEditing] = useState<Session | null>(null);
+  const [deleting, setDeleting] = useState<Session | null>(null);
+  const [historyFor, setHistoryFor] = useState<Session | null>(null);
 
   const query = { ...filters, customer, phone, page, pageSize: 20 };
   const q = useQuery({ queryKey: ['sessions', 'history', query], queryFn: () => api.sessions.list(query), placeholderData: keepPreviousData });
@@ -108,6 +117,7 @@ export default function SessionHistoryPage() {
                   <Th>Status</Th>
                   <Th>Payment</Th>
                   <Th>Invoice</Th>
+                  {isAdmin && <Th className="text-right">Actions</Th>}
                 </tr>
               </thead>
               <tbody className={q.isPlaceholderData ? 'opacity-60' : undefined}>
@@ -133,23 +143,61 @@ export default function SessionHistoryPage() {
                       <Td className="tabular whitespace-nowrap">{formatTime(end)}</Td>
                       <Td className="whitespace-nowrap">{formatDuration(minutes)}</Td>
                       <Td className="tabular text-right">
-                        {s.final_amount !== null ? money(s.final_amount) : <span className="text-ink-muted">~{money(s.estimated_amount)}</span>}
+                        <span className={s.deleted_at ? 'text-ink-muted line-through' : undefined}>
+                          {s.final_amount !== null ? money(s.final_amount) : <span className="text-ink-muted">~{money(s.estimated_amount)}</span>}
+                        </span>
+                        {s.change_count > 0 && (
+                          <button onClick={() => setHistoryFor(s)} className="block w-full text-right text-xs font-medium text-brand-600 hover:underline">
+                            {s.deleted_at ? 'history' : 'edited'}
+                          </button>
+                        )}
                       </Td>
                       <Td>
-                        <SessionStatusBadge status={s.status} />
+                        {s.deleted_at ? (
+                          <span
+                            title={`Deleted: ${s.delete_reason ?? ''}`}
+                            className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-critical/10 px-2 py-0.5 text-xs font-medium text-critical-ink ring-1 ring-inset ring-critical/30"
+                          >
+                            <Trash2 className="size-3.5" aria-hidden /> Deleted
+                          </span>
+                        ) : (
+                          <SessionStatusBadge status={s.status} />
+                        )}
                       </Td>
                       <Td>
                         <PaymentStatusBadge status={s.payment_status} />
                       </Td>
                       <Td>
                         {s.invoice_id ? (
-                          <Link to={`/invoices/${s.invoice_id}`} className="tabular text-brand-600 hover:underline">
+                          <Link to={`/invoices/${s.invoice_id}`} className="tabular whitespace-nowrap text-brand-600 hover:underline">
                             {s.invoice_number}
                           </Link>
                         ) : (
                           <span className="text-ink-muted">—</span>
                         )}
                       </Td>
+                      {isAdmin && (
+                        <Td className="text-right">
+                          {!s.deleted_at && (
+                            <div className="flex justify-end gap-1">
+                              {(s.status === 'COMPLETED' || s.status === 'EXPIRED') && (
+                                <Button size="sm" variant="ghost" icon={<Pencil className="size-3.5" aria-hidden />} onClick={() => setEditing(s)}>
+                                  Edit
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-critical-ink hover:bg-critical/10"
+                                icon={<Trash2 className="size-3.5" aria-hidden />}
+                                onClick={() => setDeleting(s)}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          )}
+                        </Td>
+                      )}
                     </tr>
                   );
                 })}
@@ -158,6 +206,9 @@ export default function SessionHistoryPage() {
             <Pagination page={q.data!.meta.page} totalPages={q.data!.meta.totalPages} total={q.data!.meta.total} onPage={setPage} />
           </>
         )}
+        <EditAmountDialog session={editing} onClose={() => setEditing(null)} />
+        <DeleteSessionDialog session={deleting} onClose={() => setDeleting(null)} />
+        <ChangesDialog session={historyFor} onClose={() => setHistoryFor(null)} />
       </Card>
     </div>
   );

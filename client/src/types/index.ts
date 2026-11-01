@@ -76,6 +76,11 @@ export interface Session {
   membership_name: string | null;
   /** Minutes covered by the membership when settled. */
   membership_minutes: number | null;
+  /** Set when an admin deleted the session (kept as CANCELLED for the record). */
+  deleted_at: string | null;
+  delete_reason: string | null;
+  /** Number of recorded amount edits / deletions. */
+  change_count: number;
   customer_name: string;
   customer_phone: string;
   console_number: string;
@@ -290,4 +295,16 @@ export interface Membership {
   invoice_id: string | null;
   invoice_number: string | null;
   payment_status: PaymentStatus | null;
+}
+/** One recorded correction to a session: amount edited, or session deleted. */
+export interface SessionAmountChange {
+  id: string;
+  session_id: string;
+  invoice_id: string | null;
+  action: 'EDIT' | 'DELETE';
+  old_amount: number;
+  new_amount: number;
+  reason: string;
+  changed_by_name: string | null;
+  created_at: string;
 }

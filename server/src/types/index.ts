@@ -101,6 +101,10 @@ export interface Session {
   membership_id: string | null;
   /** Minutes the membership covered when the session was settled. */
   membership_minutes: number | null;
+  /** Set when an admin deleted the session (it's kept, as CANCELLED, for the record). */
+  deleted_at: Date | null;
+  deleted_by: string | null;
+  delete_reason: string | null;
   created_by: string | null;
   created_at: Date;
   updated_at: Date;
@@ -116,6 +120,22 @@ export interface SessionView extends Session {
   invoice_number: string | null;
   payment_status: PaymentStatus | null;
   membership_name: string | null;
+  /** How many times the amount was edited / the session deleted (see SessionAmountChange). */
+  change_count: number;
+}
+
+/** One recorded correction: an amount edit or a deletion. */
+export interface SessionAmountChange {
+  id: string;
+  session_id: string;
+  invoice_id: string | null;
+  action: 'EDIT' | 'DELETE';
+  old_amount: number;
+  new_amount: number;
+  reason: string;
+  changed_by: string | null;
+  changed_by_name: string | null;
+  created_at: Date;
 }
 
 export interface MembershipPlan {

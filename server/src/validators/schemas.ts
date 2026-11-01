@@ -112,6 +112,15 @@ export const quoteSessionSchema = sessionWindowSchema.extend({
   players: z.coerce.number().int().min(1).max(10).default(1),
 });
 
+/** Every correction needs a reason so it can be traced later. */
+const reasonSchema = z.string().trim().min(3, 'Please give a reason (at least 3 characters)').max(300);
+
+/** Admin: correct a finished session's amount. */
+export const editSessionAmountSchema = z.object({ amount: moneySchema, reason: reasonSchema });
+
+/** Admin: delete (cancel + mark deleted) a session. */
+export const deleteSessionSchema = z.object({ reason: reasonSchema });
+
 /** Resume optionally on a different console (same type). */
 export const resumeSessionSchema = z.object({ console_id: opt(uuidSchema) });
 

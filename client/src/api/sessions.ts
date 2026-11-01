@@ -2,9 +2,10 @@
  * Session endpoints → server/src/controllers/sessionController.ts
  * Business rules live in server/src/services/sessionService.ts.
  */
-import type { EndPreview, Quote, Session } from '../types';
+import type { EndPreview, Quote, Session, SessionAmountChange } from '../types';
+import { http } from './client';
 import { syncServerTime } from '../utils/serverClock';
-import { get, getPage, post, type QueryParams } from './request';
+import { get, getPage, post, put, type QueryParams } from './request';
 
 /** Wall-clock times in IST, exactly as staff type them. The server converts. */
 export interface SessionWindow {
@@ -49,6 +50,18 @@ export const sessionsApi = {
 
   /** POST /api/sessions/:id/end — end early; returns the session with its new invoice. */
   end: (id: string) => post<Session>(`/sessions/${id}/end`),
+
+  /** PUT /api/sessions/:id/amount (admin) — correct a finished session's amount; recorded with the reason. */
+  editAmount: (id: string, amount: number, reason: string) => put<Session>(`/sessions/${id}/amount`, { amount, reason }),
+
+  /** DELETE /api/sessions/:id (admin) — cancel + mark deleted; recorded with the reason. Not allowed once paid. */
+  async remove(id: string, reason: string) {
+    const res = await http.delete(`/sessions/${id}`, { data: { reason } });
+    return res.data.data as Session;
+  },
+
+  /** GET /api/sessions/:id/changes — every edit/deletion: who, when, why, old → new. */
+  changes: (id: string) => get<SessionAmountChange[]>(`/sessions/${id}/changes`),
 
   /** POST /api/sessions/:id/extend — add minutes if the console is free. */
   extend: (id: string, minutes: number) => post<Session>(`/sessions/${id}/extend`, { minutes }),

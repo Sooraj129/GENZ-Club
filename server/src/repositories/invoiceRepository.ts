@@ -144,7 +144,7 @@ export const invoiceRepository = {
 
   async update(
     id: string,
-    fields: Partial<Pick<Invoice, 'discount' | 'tax' | 'total' | 'payment_status'>>,
+    fields: Partial<Pick<Invoice, 'subtotal' | 'discount' | 'tax' | 'total' | 'payment_status'>>,
     db: Queryable,
   ): Promise<Invoice> {
     const entries = Object.entries(fields).filter(([, v]) => v !== undefined);

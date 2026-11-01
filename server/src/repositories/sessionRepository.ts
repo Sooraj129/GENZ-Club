@@ -1,11 +1,12 @@
 import { query, type Queryable } from '../config/db.js';
-import type { ConsoleType, PaymentStatus, Session, SessionStatus, SessionView } from '../types/index.js';
+import type { ConsoleType, PaymentStatus, Session, SessionAmountChange, SessionStatus, SessionView } from '../types/index.js';
 
 const VIEW_SELECT = `
   SELECT s.*, cu.name AS customer_name, cu.phone AS customer_phone,
          co.console_number, co.console_type,
          i.id AS invoice_id, i.invoice_number, i.payment_status,
-         m.plan_name AS membership_name
+         m.plan_name AS membership_name,
+         (SELECT count(*) FROM session_amount_changes ch WHERE ch.session_id = s.id) AS change_count
   FROM sessions s
   JOIN customers cu ON cu.id = s.customer_id
   JOIN consoles co ON co.id = s.console_id
@@ -96,6 +97,31 @@ export const sessionRepository = {
       db,
     );
     return rows[0] ?? null;
+  },
+
+  /** Records an amount edit or a deletion (who, when, why, old → new). */
+  async insertChange(
+    input: { session_id: string; invoice_id: string | null; action: 'EDIT' | 'DELETE'; old_amount: number; new_amount: number; reason: string; changed_by: string },
+    db: Queryable,
+  ): Promise<void> {
+    await query(
+      `INSERT INTO session_amount_changes (session_id, invoice_id, action, old_amount, new_amount, reason, changed_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [input.session_id, input.invoice_id, input.action, input.old_amount, input.new_amount, input.reason, input.changed_by],
+      db,
+    );
+  },
+
+  /** Every recorded change to a session, oldest first. */
+  async listChanges(sessionId: string, db?: Queryable): Promise<SessionAmountChange[]> {
+    const { rows } = await query<SessionAmountChange>(
+      `SELECT ch.*, u.name AS changed_by_name
+       FROM session_amount_changes ch LEFT JOIN users u ON u.id = ch.changed_by
+       WHERE ch.session_id = $1 ORDER BY ch.created_at`,
+      [sessionId],
+      db,
+    );
+    return rows;
   },
 
   async hasActive(consoleId: string, db?: Queryable): Promise<boolean> {
