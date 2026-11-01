@@ -6,6 +6,7 @@ import {
   createSessionSchema,
   deleteSessionSchema,
   editSessionAmountSchema,
+  sessionPriceQuery,
   extendSessionSchema,
   quoteSessionSchema,
   resumeSessionSchema,
@@ -89,8 +90,15 @@ export const sessionController = {
   /** PUT /api/sessions/:id/amount — admin corrects a finished session's amount (recorded). */
   async editAmount(req: Request, res: Response) {
     const { id } = parse(idParamSchema, req.params);
-    const { amount, reason } = parse(editSessionAmountSchema, req.body);
-    ok(res, await sessionService.editAmount(id, amount, reason, currentUser(req)));
+    const { amount, duration_minutes, reason } = parse(editSessionAmountSchema, req.body);
+    ok(res, await sessionService.editAmount(id, { amount, durationMinutes: duration_minutes }, reason, currentUser(req)));
+  },
+
+  /** GET /api/sessions/:id/price?minutes= — admin preview: what a corrected duration would cost. */
+  async price(req: Request, res: Response) {
+    const { id } = parse(idParamSchema, req.params);
+    const { minutes } = parse(sessionPriceQuery, req.query);
+    ok(res, await sessionService.priceFor(id, minutes));
   },
 
   /** DELETE /api/sessions/:id — admin deletes a session (kept as Deleted, recorded). */

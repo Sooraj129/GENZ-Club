@@ -101,13 +101,23 @@ export const sessionRepository = {
 
   /** Records an amount edit or a deletion (who, when, why, old → new). */
   async insertChange(
-    input: { session_id: string; invoice_id: string | null; action: 'EDIT' | 'DELETE'; old_amount: number; new_amount: number; reason: string; changed_by: string },
+    input: {
+      session_id: string;
+      invoice_id: string | null;
+      action: 'EDIT' | 'DELETE';
+      old_amount: number;
+      new_amount: number;
+      old_duration?: number | null;
+      new_duration?: number | null;
+      reason: string;
+      changed_by: string;
+    },
     db: Queryable,
   ): Promise<void> {
     await query(
-      `INSERT INTO session_amount_changes (session_id, invoice_id, action, old_amount, new_amount, reason, changed_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [input.session_id, input.invoice_id, input.action, input.old_amount, input.new_amount, input.reason, input.changed_by],
+      `INSERT INTO session_amount_changes (session_id, invoice_id, action, old_amount, new_amount, old_duration, new_duration, reason, changed_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [input.session_id, input.invoice_id, input.action, input.old_amount, input.new_amount, input.old_duration ?? null, input.new_duration ?? null, input.reason, input.changed_by],
       db,
     );
   },

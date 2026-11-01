@@ -77,6 +77,7 @@ router.post('/sessions/:id/extend', sessionController.extend);
 router.post('/sessions/:id/cancel', sessionController.cancel);
 // Corrections are admin-only and always recorded with a reason.
 router.put('/sessions/:id/amount', adminOnly, sessionController.editAmount);
+router.get('/sessions/:id/price', adminOnly, sessionController.price);
 router.delete('/sessions/:id', adminOnly, sessionController.remove);
 router.get('/sessions/:id/changes', sessionController.changes);
 

@@ -132,6 +132,9 @@ export interface SessionAmountChange {
   action: 'EDIT' | 'DELETE';
   old_amount: number;
   new_amount: number;
+  /** Set when the duration was corrected (minutes). */
+  old_duration: number | null;
+  new_duration: number | null;
   reason: string;
   changed_by: string | null;
   changed_by_name: string | null;

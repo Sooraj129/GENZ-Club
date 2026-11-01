@@ -51,8 +51,16 @@ export const sessionsApi = {
   /** POST /api/sessions/:id/end — end early; returns the session with its new invoice. */
   end: (id: string) => post<Session>(`/sessions/${id}/end`),
 
-  /** PUT /api/sessions/:id/amount (admin) — correct a finished session's amount; recorded with the reason. */
-  editAmount: (id: string, amount: number, reason: string) => put<Session>(`/sessions/${id}/amount`, { amount, reason }),
+  /**
+   * PUT /api/sessions/:id/amount (admin) — correct a finished session's duration and/or amount.
+   * Duration only → the server recalculates the amount. Recorded with the reason.
+   */
+  editAmount: (id: string, change: { amount?: number; duration_minutes?: number }, reason: string) =>
+    put<Session>(`/sessions/${id}/amount`, { ...change, reason }),
+
+  /** GET /api/sessions/:id/price?minutes= (admin) — what the session would cost for that duration. */
+  price: (id: string, minutes: number) =>
+    get<{ duration_minutes: number; membership_minutes: number; amount: number }>(`/sessions/${id}/price`, { minutes }),
 
   /** DELETE /api/sessions/:id (admin) — cancel + mark deleted; recorded with the reason. Not allowed once paid. */
   async remove(id: string, reason: string) {

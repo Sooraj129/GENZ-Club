@@ -538,21 +538,77 @@ export const sessionService = {
   // ------------------------------------------------------------------ corrections (admin)
 
   /**
-   * Corrects the amount of a finished session. The invoice is updated to match
-   * (same tax rate, discount cleared) and its payment status recalculated.
-   * Every edit is recorded in session_amount_changes with the reason.
+   * What a finished session would cost if it had lasted `durationMinutes`
+   * (same rate, players and membership). Read-only — used to preview an edit.
    */
-  async editAmount(id: string, newAmount: number, reason: string, user: AuthUser) {
+  async priceFor(id: string, durationMinutes: number) {
+    const session = await sessionRepository.findView(id);
+    if (!session) throw notFound('Session not found');
+    const membership = session.membership_id ? await membershipRepository.findById(session.membership_id) : null;
+    // Hours available = what this session already used + what's left on the package.
+    const available = (session.membership_minutes ?? 0) + membershipMinutesFor(membership, session);
+    const charge = BillingService.sessionCharge(durationMinutes, session.hourly_rate, session.players, available);
+    return { duration_minutes: durationMinutes, membership_minutes: charge.covered, amount: charge.amount };
+  },
+
+  /**
+   * Corrects a finished session's duration and/or amount (admin).
+   *
+   *   duration only -> the amount is recalculated (rate x players, membership first)
+   *   amount only   -> the amount is set as given (e.g. a discount)
+   *   both          -> duration is corrected and the amount set as given
+   *
+   * The invoice follows (same tax rate, discount cleared, payment status
+   * recalculated), membership hours are adjusted if the duration changed, and
+   * every edit is recorded in session_amount_changes with the reason.
+   */
+  async editAmount(
+    id: string,
+    change: { amount?: number; durationMinutes?: number },
+    reason: string,
+    user: AuthUser,
+  ) {
     const events = new EventBatch();
     await withTransaction(async (client) => {
       const { session } = await lockSession(id, client);
       if (session.deleted_at) throw badRequest('This session was deleted.');
       if (session.status !== 'COMPLETED' && session.status !== 'EXPIRED') {
-        throw badRequest('Only finished sessions have an amount to edit. End the session first.');
+        throw badRequest('Only finished sessions can be edited. End the session first.');
       }
       const oldAmount = session.final_amount ?? 0;
-      if (Math.round(oldAmount * 100) === Math.round(newAmount * 100)) throw badRequest('The amount is unchanged.');
+      const oldDuration = session.duration_minutes ?? 0;
+      const newDuration = change.durationMinutes ?? oldDuration;
+      const durationChanged = newDuration !== oldDuration;
 
+      // ---- duration -> membership hours and recalculated price
+      const fields: Partial<Session> = {};
+      let recalculated = oldAmount;
+      if (durationChanged) {
+        let covered = 0;
+        if (session.membership_id) {
+          const membership = await membershipRepository.lockById(session.membership_id, client);
+          const available = (session.membership_minutes ?? 0) + membershipMinutesFor(membership, session);
+          covered = Math.min(newDuration, available);
+          const delta = covered - (session.membership_minutes ?? 0);
+          if (delta !== 0) {
+            await membershipRepository.addMinutesUsed(session.membership_id, delta, client);
+            events.add('membership:updated', { membership_id: session.membership_id, customer_id: session.customer_id });
+          }
+          fields.membership_minutes = covered;
+        }
+        recalculated = BillingService.sessionCharge(newDuration, session.hourly_rate, session.players, covered).amount;
+        fields.duration_minutes = newDuration;
+        // Without pauses the session ran in one go, so its end time follows the new duration.
+        if (session.pause_count === 0) {
+          fields.actual_end_datetime = new Date(session.start_datetime.getTime() + newDuration * MINUTE);
+        }
+      }
+      const newAmount = change.amount ?? recalculated;
+      if (!durationChanged && Math.round(oldAmount * 100) === Math.round(newAmount * 100)) {
+        throw badRequest('Nothing changed.');
+      }
+
+      // ---- invoice follows the new amount
       const found = await invoiceRepository.findBySession(id, client);
       const invoice = found ? await invoiceRepository.lockById(found.id, client) : null;
       if (invoice) {
@@ -572,9 +628,20 @@ export const sessionService = {
         );
         events.add('invoice:updated', { invoice_id: invoice.id });
       }
-      await sessionRepository.update(id, { final_amount: newAmount }, client);
+
+      await sessionRepository.update(id, { ...fields, final_amount: newAmount }, client);
       await sessionRepository.insertChange(
-        { session_id: id, invoice_id: invoice?.id ?? null, action: 'EDIT', old_amount: oldAmount, new_amount: newAmount, reason, changed_by: user.id },
+        {
+          session_id: id,
+          invoice_id: invoice?.id ?? null,
+          action: 'EDIT',
+          old_amount: oldAmount,
+          new_amount: newAmount,
+          old_duration: durationChanged ? oldDuration : null,
+          new_duration: durationChanged ? newDuration : null,
+          reason,
+          changed_by: user.id,
+        },
         client,
       );
       events.add('session:updated', { session_id: id });

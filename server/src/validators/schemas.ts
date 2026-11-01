@@ -115,8 +115,17 @@ export const quoteSessionSchema = sessionWindowSchema.extend({
 /** Every correction needs a reason so it can be traced later. */
 const reasonSchema = z.string().trim().min(3, 'Please give a reason (at least 3 characters)').max(300);
 
-/** Admin: correct a finished session's amount. */
-export const editSessionAmountSchema = z.object({ amount: moneySchema, reason: reasonSchema });
+/** Admin: correct a finished session's duration and/or amount (at least one). */
+export const editSessionAmountSchema = z
+  .object({
+    amount: z.preprocess(emptyToUndefined, moneySchema.optional()),
+    duration_minutes: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1, 'Duration must be at least 1 minute').max(24 * 60).optional()),
+    reason: reasonSchema,
+  })
+  .refine((v) => v.amount !== undefined || v.duration_minutes !== undefined, { message: 'Give a new duration or amount', path: ['amount'] });
+
+/** Admin: preview the price of a corrected duration. */
+export const sessionPriceQuery = z.object({ minutes: z.coerce.number().int().min(1).max(24 * 60) });
 
 /** Admin: delete (cancel + mark deleted) a session. */
 export const deleteSessionSchema = z.object({ reason: reasonSchema });

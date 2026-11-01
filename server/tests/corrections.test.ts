@@ -29,7 +29,7 @@ describe('editing a session amount', () => {
   it('updates the session and invoice, and records who/why', async () => {
     const s = await finished();
     expect(s.final_amount).toBe(140);
-    const edited = await sessionService.editAmount(s.id, 100, 'Regular customer discount', admin);
+    const edited = await sessionService.editAmount(s.id, { amount: 100 }, 'Regular customer discount', admin);
     expect(edited.final_amount).toBe(100);
     expect(edited.change_count).toBe(1);
     const inv = await invoiceService.get(s.invoice_id!);
@@ -43,15 +43,15 @@ describe('editing a session amount', () => {
   it('keeps payment status right and refuses going below what was paid', async () => {
     const s = await finished();
     await paymentService.record({ invoice_id: s.invoice_id!, amount: 100, payment_method: 'CASH' }, admin);
-    await expect(sessionService.editAmount(s.id, 80, 'too low', admin)).rejects.toThrow('already been paid');
-    await sessionService.editAmount(s.id, 100, 'Matches cash received', admin);
+    await expect(sessionService.editAmount(s.id, { amount: 80 }, 'too low', admin)).rejects.toThrow('already been paid');
+    await sessionService.editAmount(s.id, { amount: 100 }, 'Matches cash received', admin);
     expect((await invoiceService.get(s.invoice_id!)).payment_status).toBe('PAID');
   });
 
   it('only edits finished sessions', async () => {
     const c = await createConsole('PS5');
     const live = await sessionService.create({ customer_id: customer.id, console_id: c.id, start: minutesFromNow(-10), end: minutesFromNow(50) }, admin);
-    await expect(sessionService.editAmount(live.id, 50, 'no', admin)).rejects.toThrow('Only finished sessions');
+    await expect(sessionService.editAmount(live.id, { amount: 50 }, 'no', admin)).rejects.toThrow('Only finished sessions');
   });
 });
 
@@ -117,5 +117,42 @@ describe('corrections API', () => {
     expect(del.status).toBe(200);
     const changes = await request(app).get(`/api/sessions/${s.id}/changes`).set({ Authorization: `Bearer ${staffToken}` });
     expect(changes.body.data.map((c: { action: string }) => c.action)).toEqual(['EDIT', 'DELETE']);
+  });
+});
+
+describe('editing a session duration', () => {
+  it('recalculates the amount from the new duration and records it', async () => {
+    const s = await finished(); // 60 min × ₹140
+    const edited = await sessionService.editAmount(s.id, { durationMinutes: 45 }, 'Customer left early, timer not stopped', admin);
+    expect(edited.duration_minutes).toBe(45);
+    expect(edited.final_amount).toBe(105);
+    expect(new Date(edited.actual_end_datetime!).getTime() - new Date(edited.start_datetime).getTime()).toBe(45 * 60_000);
+    expect((await invoiceService.get(s.invoice_id!)).total).toBe(105);
+    const last = (await sessionService.changes(s.id)).at(-1)!;
+    expect(last).toMatchObject({ action: 'EDIT', old_amount: 140, new_amount: 105, old_duration: 60, new_duration: 45 });
+  });
+
+  it('prices groups per player and allows an amount override with a duration change', async () => {
+    const c = await createConsole('PS5');
+    const s = await sessionService.create({ customer_id: customer.id, console_id: c.id, start: minutesFromNow(-120), end: minutesFromNow(-60), players: 3 }, admin);
+    expect((await sessionService.priceFor(s.id, 30)).amount).toBe(210); // 30 min × 3 × ₹140/hr
+    const edited = await sessionService.editAmount(s.id, { durationMinutes: 30, amount: 200 }, 'Rounded down', admin);
+    expect(edited.duration_minutes).toBe(30);
+    expect(edited.final_amount).toBe(200);
+  });
+
+  it('adjusts membership hours when the duration changes', async () => {
+    const plan = await membershipService.createPlan({ name: `Dur ${Date.now()}`, price: 799, minutes: 360, console_type: null, validity_days: 30 });
+    const { membership } = await membershipService.sell(customer.id, plan.id, admin);
+    const c = await createConsole('PS5');
+    const s = await sessionService.create({ customer_id: customer.id, console_id: c.id, start: minutesFromNow(-120), end: minutesFromNow(-60), membership_id: membership.id }, admin);
+    expect((await membershipService.get(membership.id)).minutes_left).toBe(300);
+    await sessionService.editAmount(s.id, { durationMinutes: 30 }, 'Played only 30 min', admin);
+    expect((await membershipService.get(membership.id)).minutes_left).toBe(330);
+  });
+
+  it('rejects an edit that changes nothing', async () => {
+    const s = await finished();
+    await expect(sessionService.editAmount(s.id, { durationMinutes: 60 }, 'same', admin)).rejects.toThrow('Nothing changed');
   });
 });
