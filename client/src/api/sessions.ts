@@ -16,10 +16,10 @@ export interface SessionWindow {
 
 export const sessionsApi = {
   /** POST /api/sessions/quote — server-calculated duration, rate, estimate and availability. */
-  quote: (body: SessionWindow & { console_id: string; membership_id?: string }) => post<Quote>('/sessions/quote', body),
+  quote: (body: SessionWindow & { console_id: string; membership_id?: string; players?: number }) => post<Quote>('/sessions/quote', body),
 
   /** POST /api/sessions — 409 if the console is already booked for that time. */
-  create: (body: SessionWindow & { console_id: string; customer_id: string; membership_id?: string }) => post<Session>('/sessions', body),
+  create: (body: SessionWindow & { console_id: string; customer_id: string; membership_id?: string; players?: number }) => post<Session>('/sessions', body),
 
   /** GET /api/sessions — history with filters + pagination. */
   list: (params: QueryParams) => getPage<Session>('/sessions', params),

@@ -69,6 +69,22 @@ export const BillingService = {
     return { covered, billable, amount: this.calculateAmount(billable, hourlyRate) };
   },
 
+  /**
+   * Price of a session: every player pays `hourlyRate` for the time played.
+   * A membership covers its owner's time only (one player); the other players
+   * pay as normal.
+   *
+   *   3 players × 60 min on PS5 at ₹140/hr                    = ₹420
+   *   same, owner has a membership covering 60 min            = ₹280
+   */
+  sessionCharge(durationMinutes: number, hourlyRate: number, players = 1, membershipMinutesLeft = 0) {
+    const { covered } = this.applyMembership(durationMinutes, membershipMinutesLeft, hourlyRate);
+    // Total billable player-minutes, priced and rounded once (per-player rounding would
+    // turn 3 × ₹46.67 into ₹140.01 instead of ₹140).
+    const playerMinutes = durationMinutes - covered + durationMinutes * Math.max(0, players - 1);
+    return { covered, amount: this.calculateAmount(playerMinutes, hourlyRate) };
+  },
+
   /** subtotal − discount, then tax on the discounted amount. */
   invoiceTotals(subtotal: number, discount: number, taxPercent: number): InvoiceTotals {
     const sub = toPaise(subtotal);

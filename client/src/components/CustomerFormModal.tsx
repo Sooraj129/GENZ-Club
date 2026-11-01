@@ -7,14 +7,17 @@ import { z } from 'zod';
 import { api } from '../api';
 import { errorData, errorMessage, errorStatus } from '../api/client';
 import type { Customer } from '../types';
+import { DEFAULT_PHONE } from '../utils/phone';
 import { Button, Field, Input, Modal } from './ui';
 
 const schema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(100),
+  // Optional: left empty → the shop's default number (walk-in customer).
   phone: z
     .string()
     .trim()
     .transform((v) => v.replace(/[\s-()]/g, '').replace(/^(\+91|91|0)(?=\d{10}$)/, ''))
+    .transform((v) => v || DEFAULT_PHONE)
     .refine((v) => /^[6-9]\d{9}$/.test(v), 'Enter a valid 10-digit mobile number'),
   email: z.union([z.literal(''), z.email('Enter a valid email address')]).optional(),
 });
@@ -110,7 +113,7 @@ export function CustomerFormModal({
         <Field label="Name" htmlFor="c-name" error={errors.name?.message}>
           <Input id="c-name" autoFocus invalid={!!errors.name} {...form.register('name')} />
         </Field>
-        <Field label="Phone" htmlFor="c-phone" error={errors.phone?.message}>
+        <Field label="Phone (optional)" htmlFor="c-phone" error={errors.phone?.message} hint={`Leave empty for walk-ins — ${DEFAULT_PHONE} is used`}>
           <Input id="c-phone" type="tel" inputMode="tel" invalid={!!errors.phone} {...form.register('phone')} />
         </Field>
         <Field label="Email (optional)" htmlFor="c-email" error={errors.email?.message}>

@@ -33,6 +33,7 @@ export const sessionRepository = {
       end_datetime: Date;
       booked_minutes: number;
       hourly_rate: number;
+      players: number;
       estimated_amount: number;
       status: SessionStatus;
       membership_id: string | null;
@@ -43,8 +44,8 @@ export const sessionRepository = {
     // A new session's first segment starts at its start time.
     const { rows } = await query<Session>(
       `INSERT INTO sessions (customer_id, console_id, start_datetime, segment_start_datetime, end_datetime,
-                             booked_minutes, hourly_rate, estimated_amount, status, membership_id, created_by)
-       VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+                             booked_minutes, hourly_rate, players, estimated_amount, status, membership_id, created_by)
+       VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
       [
         input.customer_id,
         input.console_id,
@@ -52,6 +53,7 @@ export const sessionRepository = {
         input.end_datetime,
         input.booked_minutes,
         input.hourly_rate,
+        input.players,
         input.estimated_amount,
         input.status,
         input.membership_id,

@@ -3,7 +3,7 @@ import type { ConsoleStatus, ConsoleType, GameConsole } from '../types/index.js'
 
 const SELECT = `
   SELECT c.id, c.console_number, c.console_type, p.sort_order AS type_order, c.hourly_rate AS rate_override,
-         COALESCE(c.hourly_rate, p.hourly_rate) AS hourly_rate,
+         COALESCE(c.hourly_rate, p.hourly_rate) AS hourly_rate, p.max_players,
          c.status, c.created_at, c.updated_at
   FROM consoles c
   JOIN pricing p ON p.console_type = c.console_type`;

@@ -102,7 +102,7 @@ export default function InvoiceDetailPage() {
         </section>
         <section className="border-b border-dashed border-ink/40 py-3">
           <Line label="Customer" value={inv.customer_name} />
-          <Line label="Phone" value={inv.customer_phone} />
+          <Line label="Phone" value={inv.invoice_phone} />
         </section>
         {inv.kind === 'MEMBERSHIP' ? (
           // Membership package sale
@@ -121,7 +121,8 @@ export default function InvoiceDetailPage() {
             {!!inv.membership_minutes && (
               <Line label={`Membership (${inv.membership_name ?? 'package'})`} value={`− ${formatDuration(inv.membership_minutes)}`} />
             )}
-            <Line label="Rate" value={`${money(inv.hourly_rate)}/hour`} />
+            {(inv.players ?? 1) > 1 && <Line label="Players" value={String(inv.players)} />}
+            <Line label="Rate" value={`${money(inv.hourly_rate)}/hour${(inv.players ?? 1) > 1 ? ' per player' : ''}`} />
           </section>
         )}
         <section className="border-b border-dashed border-ink/40 py-3">

@@ -8,7 +8,7 @@
  * The server alone decides when a session ends.
  */
 import clsx from 'clsx';
-import { BadgePercent, Clock, Pause, Phone, Play, Plus, Square } from 'lucide-react';
+import { BadgePercent, Clock, Pause, Phone, Play, Plus, Square, Users } from 'lucide-react';
 import type { Session } from '../types';
 import { formatCountdown, formatDuration, formatTime, money } from '../utils/format';
 import { ConsoleTypeTag, SessionStatusBadge } from './StatusBadge';
@@ -38,6 +38,11 @@ function CardHeader({ session }: { session: Session }) {
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className="text-lg font-semibold text-ink">{session.console_number}</span>
         <ConsoleTypeTag type={session.console_type} />
+        {session.players > 1 && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 ring-1 ring-inset ring-sky-600/20">
+            <Users className="size-3" aria-hidden /> {session.players} players
+          </span>
+        )}
         {session.membership_name && <MembershipTag name={session.membership_name} />}
       </div>
     </>
@@ -104,7 +109,7 @@ export function SessionCard({
 
       <div className="mt-4 flex items-baseline justify-between">
         <span className="text-xs text-ink-muted">
-          {formatDuration(session.booked_minutes)} · {money(session.hourly_rate)}/hr
+          {formatDuration(session.booked_minutes)} · {money(session.hourly_rate)}/hr{session.players > 1 ? ` × ${session.players}` : ''}
         </span>
         <span className="tabular text-xl font-semibold text-ink">{money(session.estimated_amount)}</span>
       </div>

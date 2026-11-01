@@ -20,7 +20,8 @@ function useInvalidateSessions() {
 export function EndSessionDialog({ session, onClose }: { session: Session | null; onClose: () => void }) {
   const invalidate = useInvalidateSessions();
   const preview = useQuery({
-    queryKey: ['sessions', session?.id, 'end-preview'],
+    // Own key (not under 'sessions') so refreshing sessions after End doesn't re-ask for an ended session.
+    queryKey: ['end-preview', session?.id],
     queryFn: () => api.sessions.endPreview(session!.id),
     enabled: !!session,
     gcTime: 0,
@@ -69,7 +70,10 @@ export function EndSessionDialog({ session, onClose }: { session: Session | null
                 {preview.data.membership_minutes > 0 && (
                   <KeyValue label={`Membership (${session.membership_name ?? 'package'})`} value={`− ${formatDuration(preview.data.membership_minutes)}`} />
                 )}
-                <KeyValue label="Rate" value={`${money(preview.data.hourly_rate)}/hr`} />
+                <KeyValue
+                  label="Rate"
+                  value={preview.data.players > 1 ? `${money(preview.data.hourly_rate)}/hr × ${preview.data.players} players` : `${money(preview.data.hourly_rate)}/hr`}
+                />
                 <KeyValue label="Estimated final amount" value={money(preview.data.final_amount)} strong />
               </div>
             )

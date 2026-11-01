@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   CONSOLE_TYPES,
+  DEFAULT_PHONE,
   PAYMENT_METHODS,
   PAYMENT_STATUSES,
   ROLES,
@@ -49,15 +50,21 @@ export const updateUserSchema = z.object({
 });
 
 // ------------------------------------------------------------------- customers
+/** Empty phone → the shop's default number (walk-in customers). */
+const optionalPhoneSchema = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '') || v === null || v === undefined ? DEFAULT_PHONE : v,
+  phoneSchema,
+);
+
 export const createCustomerSchema = z.object({
   name: nameSchema,
-  phone: phoneSchema,
+  phone: optionalPhoneSchema,
   email: optionalEmailSchema,
 });
 
 export const updateCustomerSchema = z.object({
   name: nameSchema.optional(),
-  phone: phoneSchema.optional(),
+  phone: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? DEFAULT_PHONE : v), phoneSchema.optional()),
   email: optionalEmailSchema,
 });
 
@@ -95,9 +102,15 @@ export const createSessionSchema = sessionWindowSchema.extend({
   console_id: uuidSchema,
   /** Optional: play on a membership package's prepaid hours. */
   membership_id: opt(uuidSchema),
+  /** Players sharing the console (each pays the hourly rate). */
+  players: z.coerce.number().int().min(1, 'At least 1 player').max(10).default(1),
 });
 
-export const quoteSessionSchema = sessionWindowSchema.extend({ console_id: uuidSchema, membership_id: opt(uuidSchema) });
+export const quoteSessionSchema = sessionWindowSchema.extend({
+  console_id: uuidSchema,
+  membership_id: opt(uuidSchema),
+  players: z.coerce.number().int().min(1).max(10).default(1),
+});
 
 /** Resume optionally on a different console (same type). */
 export const resumeSessionSchema = z.object({ console_id: opt(uuidSchema) });

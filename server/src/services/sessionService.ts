@@ -33,7 +33,7 @@ import { membershipService } from './membershipService.js';
 import { settingsService } from './settingsService.js';
 
 export const SESSION_RULES = {
-  MIN_MINUTES: 15,
+  MIN_MINUTES: 10,
   MAX_MINUTES: 24 * 60,
   /** How far back a session may be back-dated (for recording play that already happened). */
   MAX_BACKDATE_MINUTES: 24 * 60,
@@ -111,8 +111,20 @@ function membershipMinutesFor(m: Membership | null, session: Pick<Session, 'star
 }
 
 /** Estimate for `bookedMinutes`, after whatever the membership can cover. */
-function estimateAmount(bookedMinutes: number, hourlyRate: number, membershipMinutesLeft: number) {
-  return BillingService.applyMembership(bookedMinutes, membershipMinutesLeft, hourlyRate).amount;
+function estimateAmount(bookedMinutes: number, hourlyRate: number, membershipMinutesLeft: number, players: number) {
+  return BillingService.sessionCharge(bookedMinutes, hourlyRate, players, membershipMinutesLeft).amount;
+}
+
+/** PS5/PS4 allow groups (up to max_players); Steering Wheel and VR are single-player. */
+function assertPlayers(c: GameConsole, players: number) {
+  if (players < 1) throw badRequest('At least 1 player is required.');
+  if (players > c.max_players) {
+    throw badRequest(
+      c.max_players === 1
+        ? `${c.console_number} is single-player.`
+        : `${c.console_number} allows at most ${c.max_players} players.`,
+    );
+  }
 }
 
 async function membershipLeft(session: Pick<Session, 'membership_id' | 'start_datetime'>, client?: pg.PoolClient) {
@@ -124,19 +136,22 @@ async function membershipLeft(session: Pick<Session, 'membership_id' | 'start_da
 
 export const sessionService = {
   /** Estimate shown on the New Session form, calculated by the server's BillingService. */
-  async quote(consoleId: string, start: Date, end: Date, membershipId?: string) {
+  async quote(consoleId: string, start: Date, end: Date, membershipId?: string, players = 1) {
     const c = await consoleRepository.findById(consoleId);
     if (!c) throw notFound('Console not found');
     assertWindow(start, end);
     const durationMinutes = BillingService.durationMinutes(start, end);
     const left = membershipId ? membershipMinutesFor(await membershipRepository.findById(membershipId), { start_datetime: start }) : 0;
-    const split = BillingService.applyMembership(durationMinutes, left, c.hourly_rate);
+    assertPlayers(c, players);
+    const split = BillingService.sessionCharge(durationMinutes, c.hourly_rate, players, left);
     const overlap = await sessionRepository.findOverlap(consoleId, start, end, null);
     return {
       console_id: c.id,
       console_number: c.console_number,
       console_type: c.console_type,
       hourly_rate: c.hourly_rate,
+      players,
+      max_players: c.max_players,
       duration_minutes: durationMinutes,
       membership_minutes: split.covered,
       estimated_amount: split.amount,
@@ -150,7 +165,7 @@ export const sessionService = {
   },
 
   async create(
-    input: { customer_id: string; console_id: string; start: Date; end: Date; membership_id?: string | null },
+    input: { customer_id: string; console_id: string; start: Date; end: Date; membership_id?: string | null; players?: number },
     user: AuthUser,
   ) {
     assertWindow(input.start, input.end);
@@ -169,6 +184,8 @@ export const sessionService = {
       const c = await consoleRepository.lockById(input.console_id, client);
       if (!c) throw notFound('Console not found');
       assertBookable(c);
+      const players = input.players ?? 1;
+      assertPlayers(c, players);
 
       const left = input.membership_id
         ? await membershipService.assertUsable(input.membership_id, customer.id, c.console_type, client)
@@ -189,7 +206,8 @@ export const sessionService = {
             end_datetime: input.end,
             booked_minutes: bookedMinutes,
             hourly_rate: c.hourly_rate,
-            estimated_amount: estimateAmount(bookedMinutes, c.hourly_rate, left),
+            players,
+            estimated_amount: estimateAmount(bookedMinutes, c.hourly_rate, left, players),
             status,
             membership_id: input.membership_id ?? null,
             created_by: user.id,
@@ -254,7 +272,7 @@ export const sessionService = {
         fields.start_datetime = at;
         fields.segment_start_datetime = at;
         fields.booked_minutes = bookedMinutes;
-        fields.estimated_amount = estimateAmount(bookedMinutes, session.hourly_rate, await membershipLeft(session, client));
+        fields.estimated_amount = estimateAmount(bookedMinutes, session.hourly_rate, await membershipLeft(session, client), session.players);
       }
       await guardOverlap(c, () => sessionRepository.update(id, fields, client));
       events.add('session:started', { session_id: id });
@@ -344,7 +362,7 @@ export const sessionService = {
     const session = await this.get(id);
     if (session.status !== 'ACTIVE' && session.status !== 'PAUSED') throw badRequest('Only playing or paused sessions can be ended.');
     const duration = playedUntil(session, now());
-    const split = BillingService.applyMembership(duration, await membershipLeft(session), session.hourly_rate);
+    const split = BillingService.sessionCharge(duration, session.hourly_rate, session.players, await membershipLeft(session));
     return {
       session_id: id,
       actual_end_datetime: session.status === 'PAUSED' ? session.paused_at : now(),
@@ -352,6 +370,7 @@ export const sessionService = {
       membership_minutes: split.covered,
       final_amount: split.amount,
       hourly_rate: session.hourly_rate,
+      players: session.players,
     };
   },
 
@@ -424,7 +443,7 @@ export const sessionService = {
     let covered = 0;
     if (session.membership_id) {
       const membership = await membershipRepository.lockById(session.membership_id, client);
-      covered = BillingService.applyMembership(played.durationMinutes, membershipMinutesFor(membership, session), session.hourly_rate).covered;
+      covered = BillingService.sessionCharge(played.durationMinutes, session.hourly_rate, session.players, membershipMinutesFor(membership, session)).covered;
       if (covered > 0) {
         await membershipRepository.addMinutesUsed(session.membership_id, covered, client);
         events.add('membership:updated', { membership_id: session.membership_id, customer_id: session.customer_id });
@@ -432,7 +451,8 @@ export const sessionService = {
     }
 
     // 3. Bill whatever the membership didn't cover.
-    const amount = BillingService.calculateAmount(played.durationMinutes - covered, session.hourly_rate);
+    // Owner's time after the membership + every other player's full time.
+    const amount = BillingService.sessionCharge(played.durationMinutes, session.hourly_rate, session.players, covered).amount;
     const settled = await sessionRepository.update(
       session.id,
       {
@@ -474,7 +494,7 @@ export const sessionService = {
 
       const fields: Partial<Session> = {
         booked_minutes: bookedMinutes,
-        estimated_amount: estimateAmount(bookedMinutes, session.hourly_rate, await membershipLeft(session, client)),
+        estimated_amount: estimateAmount(bookedMinutes, session.hourly_rate, await membershipLeft(session, client), session.players),
       };
       if (session.status !== 'PAUSED') {
         const newEnd = new Date(session.end_datetime.getTime() + minutes * MINUTE);

@@ -19,6 +19,8 @@ export interface InvoiceView extends Invoice {
   actual_end_datetime: Date | null;
   duration_minutes: number | null;
   hourly_rate: number | null;
+  /** Players on the session (each paid the hourly rate). */
+  players: number | null;
   session_status: SessionStatus | null;
   /** Minutes paid for by a membership (session played on a package). */
   membership_minutes: number | null;
@@ -35,7 +37,7 @@ const VIEW_SELECT = `
          cu.name AS customer_name, cu.phone AS customer_phone, cu.email AS customer_email,
          co.console_number, co.console_type,
          s.start_datetime, s.end_datetime, s.actual_end_datetime, s.duration_minutes, s.hourly_rate,
-         s.status AS session_status, s.membership_minutes,
+         s.status AS session_status, s.membership_minutes, s.players,
          m.plan_name AS membership_name, m.minutes_total AS membership_minutes_total, m.expires_at AS membership_expires_at,
          COALESCE((SELECT sum(p.amount) FROM payments p WHERE p.invoice_id = i.id), 0) AS amount_paid
   FROM invoices i

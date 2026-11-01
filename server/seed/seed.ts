@@ -79,7 +79,7 @@ async function main() {
     }
     for (const c of MINIMAL ? [] : CUSTOMERS) {
       await db.query(
-        `INSERT INTO customers (name, phone, email) VALUES ($1, $2, $3) ON CONFLICT (phone) DO NOTHING`,
+        `INSERT INTO customers (name, phone, email) VALUES ($1, $2, $3) ON CONFLICT (phone) WHERE phone <> '6381897882' DO NOTHING`,
         [c.name, c.phone, c.email],
       );
     }

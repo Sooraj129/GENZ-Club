@@ -38,7 +38,10 @@ export interface GameConsole {
   console_number: string;
   console_type: ConsoleType;
   rate_override: number | null;
+  /** Per player per hour. */
   hourly_rate: number;
+  /** Most players at once (PS5/PS4: 5, Steering Wheel/VR: 1). */
+  max_players: number;
   status: ConsoleStatus;
   current_session_id?: string | null;
   current_customer_name?: string | null;
@@ -60,6 +63,8 @@ export interface Session {
   /** Total play time booked; played_minutes = minutes played before the last pause. */
   booked_minutes: number;
   played_minutes: number;
+  /** Players sharing the console; each pays hourly_rate. */
+  players: number;
   paused_at: string | null;
   pause_count: number;
   duration_minutes: number | null;
@@ -118,6 +123,7 @@ export interface Invoice {
   actual_end_datetime: string | null;
   duration_minutes: number | null;
   hourly_rate: number | null;
+  players: number | null;
   session_status: SessionStatus | null;
   membership_minutes: number | null;
   membership_name: string | null;
@@ -136,6 +142,8 @@ export interface BusinessSettings {
 
 export interface InvoiceDetail extends Invoice {
   balance_due: number;
+  /** Phone printed on the invoice: always the shop number (6381897882). */
+  invoice_phone: string;
   payments: Payment[];
   business: BusinessSettings;
 }
@@ -230,6 +238,8 @@ export interface Quote {
   console_number: string;
   console_type: ConsoleType;
   hourly_rate: number;
+  players: number;
+  max_players: number;
   duration_minutes: number;
   /** Minutes a selected membership would cover. */
   membership_minutes: number;
@@ -245,6 +255,7 @@ export interface EndPreview {
   membership_minutes: number;
   final_amount: number;
   hourly_rate: number;
+  players: number;
 }
 
 export interface MembershipPlan {

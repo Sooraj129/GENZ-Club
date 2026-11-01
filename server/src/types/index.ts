@@ -1,6 +1,13 @@
 export const ROLES = ['ADMIN', 'STAFF'] as const;
 export type Role = (typeof ROLES)[number];
 
+/**
+ * The shop's phone number. Used for walk-in customers who don't give a phone,
+ * and printed on every invoice instead of the customer's personal number.
+ * (Also hard-coded in migration 005's unique index — change both together.)
+ */
+export const DEFAULT_PHONE = '6381897882';
+
 /** Every kind of station the center rents out. Prices live in the `pricing` table. */
 export const CONSOLE_TYPES = ['PS5', 'PS4', 'STEERING', 'VR'] as const;
 export type ConsoleType = (typeof CONSOLE_TYPES)[number];
@@ -57,8 +64,10 @@ export interface GameConsole {
   console_type: ConsoleType;
   /** Per-console override; null means "use type pricing". */
   rate_override: number | null;
-  /** Effective rate new sessions will be charged. */
+  /** Effective rate new sessions will be charged (per player). */
   hourly_rate: number;
+  /** Most players allowed at once on this console type (PS5/PS4: 5, Steering/VR: 1). */
+  max_players: number;
   status: ConsoleStatus;
   created_at: Date;
   updated_at: Date;
@@ -82,7 +91,10 @@ export interface Session {
   paused_at: Date | null;
   pause_count: number;
   duration_minutes: number | null;
+  /** Rate per player per hour, fixed at booking time. */
   hourly_rate: number;
+  /** Players sharing the console; each pays hourly_rate. */
+  players: number;
   estimated_amount: number;
   final_amount: number | null;
   status: SessionStatus;

@@ -21,14 +21,14 @@ export const sessionController = {
   async quote(req: Request, res: Response) {
     const body = parse(quoteSessionSchema, req.body);
     const { start, end } = toWindow(body);
-    ok(res, await sessionService.quote(body.console_id, start, end, body.membership_id));
+    ok(res, await sessionService.quote(body.console_id, start, end, body.membership_id, body.players));
   },
 
   async create(req: Request, res: Response) {
     const body = parse(createSessionSchema, req.body);
     const { start, end } = toWindow(body);
     const session = await sessionService.create(
-      { customer_id: body.customer_id, console_id: body.console_id, start, end, membership_id: body.membership_id },
+      { customer_id: body.customer_id, console_id: body.console_id, start, end, membership_id: body.membership_id, players: body.players },
       currentUser(req),
     );
     ok(res, session, 201);

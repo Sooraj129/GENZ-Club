@@ -1,6 +1,7 @@
 import { customerRepository } from '../repositories/customerRepository.js';
 import { sessionRepository } from '../repositories/sessionRepository.js';
 import { emitEvent } from '../sockets/index.js';
+import { DEFAULT_PHONE } from '../types/index.js';
 import { conflict, isPgError, notFound, PG } from '../utils/errors.js';
 
 export const customerService = {
@@ -9,7 +10,8 @@ export const customerService = {
    * record attached so the UI can offer to start a session for them instead.
    */
   async create(input: { name: string; phone: string; email: string | null }) {
-    const existing = await customerRepository.findByPhone(input.phone);
+    // Walk-ins share the shop's default number, so it never counts as a duplicate.
+    const existing = input.phone === DEFAULT_PHONE ? null : await customerRepository.findByPhone(input.phone);
     if (existing) throw conflict('Customer already exists', { customer: existing });
     try {
       const customer = await customerRepository.create(input);
@@ -44,7 +46,7 @@ export const customerService = {
   },
 
   async update(id: string, input: Partial<{ name: string; phone: string; email: string | null }>) {
-    if (input.phone) {
+    if (input.phone && input.phone !== DEFAULT_PHONE) {
       const other = await customerRepository.findByPhone(input.phone);
       if (other && other.id !== id) throw conflict('Another customer already uses this phone number', { customer: other });
     }

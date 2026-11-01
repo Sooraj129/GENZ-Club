@@ -3,7 +3,7 @@ import { invoiceRepository, type InvoiceFilters } from '../repositories/invoiceR
 import { membershipRepository } from '../repositories/membershipRepository.js';
 import { paymentRepository } from '../repositories/paymentRepository.js';
 import { emitEvent } from '../sockets/index.js';
-import type { Invoice, Membership, Session } from '../types/index.js';
+import { DEFAULT_PHONE, type Invoice, type Membership, type Session } from '../types/index.js';
 import { badRequest, notFound } from '../utils/errors.js';
 import { businessDate, now } from '../utils/time.js';
 import { BillingService } from './billingService.js';
@@ -73,6 +73,8 @@ export const invoiceService = {
     return {
       ...invoice,
       balance_due: BillingService.balance(invoice.total, invoice.amount_paid),
+      /** Phone printed on the invoice — always the shop's number, never the customer's. */
+      invoice_phone: DEFAULT_PHONE,
       payments,
     };
   },

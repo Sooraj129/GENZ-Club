@@ -15,7 +15,7 @@ import { CONSOLE_TYPE_META, CONSOLE_TYPES } from '../utils/consoleTypes';
 import { addDaysYmd, businessParts, formatDate, formatDateTime, formatDuration, formatTime, istToDate, money } from '../utils/format';
 import { serverNow } from '../utils/serverClock';
 
-const QUICK_DURATIONS = [30, 60, 90, 120, 180];
+const QUICK_DURATIONS = [10, 20, 30, 60, 90, 120, 180];
 const UNBOOKABLE = new Set(['MAINTENANCE', 'DISABLED']);
 
 function endFrom(date: string, time: string, minutes: number) {
@@ -50,6 +50,13 @@ export default function NewSessionPage() {
   const [consoleId, setConsoleId] = useState<string | null>(params.get('console'));
   const consoles = useQuery({ queryKey: ['consoles'], queryFn: api.consoles.list });
   const selectedConsole = consoles.data?.find((c) => c.id === consoleId) ?? null;
+
+  // ---- players: PS5/PS4 groups of up to 5 (each pays the hourly rate); Steering Wheel / VR are single-player
+  const [players, setPlayers] = useState(1);
+  const maxPlayers = selectedConsole?.max_players ?? 1;
+  useEffect(() => {
+    if (players > maxPlayers) setPlayers(maxPlayers);
+  }, [players, maxPlayers]);
   // Type filter buttons only for types the center actually has (PS5, PS4, Steering Wheel, VR).
   const availableTypes = CONSOLE_TYPES.filter((t) => (consoles.data ?? []).some((c) => c.console_type === t && c.status !== 'DISABLED'));
   const visibleConsoles = (consoles.data ?? []).filter((c) => c.status !== 'DISABLED' && (typeFilter === 'ALL' || c.console_type === typeFilter));
@@ -94,8 +101,8 @@ export default function NewSessionPage() {
 
   // ---- server-side quote: duration, rate, estimate and availability
   const quote = useQuery({
-    queryKey: ['sessions', 'quote', consoleId, debouncedWin, membershipId],
-    queryFn: () => api.sessions.quote({ console_id: consoleId!, ...debouncedWin, membership_id: membershipId || undefined }),
+    queryKey: ['sessions', 'quote', consoleId, debouncedWin, membershipId, players],
+    queryFn: () => api.sessions.quote({ console_id: consoleId!, ...debouncedWin, membership_id: membershipId || undefined, players }),
     enabled: !!consoleId && windowValid,
     retry: false,
   });
@@ -107,7 +114,7 @@ export default function NewSessionPage() {
   });
 
   const create = useMutation({
-    mutationFn: () => api.sessions.create({ customer_id: customer!.id, console_id: consoleId!, ...win, membership_id: membershipId || undefined }),
+    mutationFn: () => api.sessions.create({ customer_id: customer!.id, console_id: consoleId!, ...win, membership_id: membershipId || undefined, players }),
     onSuccess: (s) => {
       const what = s.status === 'ACTIVE' ? 'started' : s.status === 'SCHEDULED' ? 'booked' : 'recorded';
       toast.success(`Session ${what}: ${s.customer_name} on ${s.console_number}`);
@@ -288,6 +295,33 @@ export default function NewSessionPage() {
             )}
           </Card>
 
+          {/* Players — only for consoles that allow groups (PS5 / PS4) */}
+          {selectedConsole && maxPlayers > 1 && (
+            <Card className="p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-ink">Players</h2>
+                  <p className="text-xs text-ink-muted">
+                    Each player pays {money(selectedConsole.hourly_rate)}/hr · up to {maxPlayers} on {selectedConsole.console_number}
+                  </p>
+                </div>
+                <div className="inline-flex rounded-lg border border-hairline p-0.5" role="radiogroup" aria-label="Number of players">
+                  {Array.from({ length: maxPlayers }, (_, i) => i + 1).map((n) => (
+                    <button
+                      key={n}
+                      role="radio"
+                      aria-checked={players === n}
+                      onClick={() => setPlayers(n)}
+                      className={clsx('min-w-10 rounded-md px-3 py-1.5 text-sm font-medium', players === n ? 'bg-ink text-white' : 'text-ink-2 hover:bg-plane')}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Step 3 — time */}
           <Card className="p-5">
             <div className="mb-3 flex items-center justify-between">
@@ -358,7 +392,10 @@ export default function NewSessionPage() {
                 {quote.data.membership_minutes > 0 && (
                   <KeyValue label="Membership covers" value={`− ${formatDuration(quote.data.membership_minutes)}`} />
                 )}
-                <KeyValue label="Rate" value={`${money(quote.data.hourly_rate)}/hour`} />
+                <KeyValue
+                  label="Rate"
+                  value={quote.data.players > 1 ? `${money(quote.data.hourly_rate)}/hr × ${quote.data.players} players` : `${money(quote.data.hourly_rate)}/hour`}
+                />
                 <KeyValue label="Estimated Total" value={<span className="text-lg">{money(quote.data.estimated_amount)}</span>} strong />
               </>
             ) : quote.isError ? (

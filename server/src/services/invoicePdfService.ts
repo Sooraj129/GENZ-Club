@@ -1,7 +1,7 @@
 import PDFDocument from 'pdfkit';
 import type { InvoiceView } from '../repositories/invoiceRepository.js';
 import type { PaymentView } from '../repositories/paymentRepository.js';
-import { CONSOLE_TYPE_LABELS } from '../types/index.js';
+import { CONSOLE_TYPE_LABELS, DEFAULT_PHONE } from '../types/index.js';
 import { formatBusinessDateTime, formatDuration } from '../utils/time.js';
 import type { BusinessSettings } from './settingsService.js';
 
@@ -51,7 +51,7 @@ export const invoicePdfService = {
       rule();
 
       row('Customer', invoice.customer_name);
-      row('Phone', invoice.customer_phone);
+      row('Phone', DEFAULT_PHONE); // shop number — customers' own phones are never printed
       if (invoice.customer_email) row('Email', invoice.customer_email);
       rule();
 
@@ -70,7 +70,9 @@ export const invoicePdfService = {
         if (invoice.membership_minutes) {
           row(`Membership (${invoice.membership_name ?? 'package'})`, `- ${formatDuration(invoice.membership_minutes)}`);
         }
-        row('Rate', `${money(invoice.hourly_rate ?? 0)} / hour`);
+        const players = invoice.players ?? 1;
+        if (players > 1) row('Players', String(players));
+        row('Rate', `${money(invoice.hourly_rate ?? 0)} / hour${players > 1 ? ' per player' : ''}`);
       }
       rule();
 
