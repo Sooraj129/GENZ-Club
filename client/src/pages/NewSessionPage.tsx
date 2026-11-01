@@ -11,6 +11,7 @@ import { ConsoleStatusBadge, ConsoleTypeTag } from '../components/StatusBadge';
 import { Button, Card, EmptyState, Field, Input, KeyValue, PageHeader, Spinner } from '../components/ui';
 import { useDebounce } from '../hooks/useDebounce';
 import type { ConsoleType, Customer, GameConsole } from '../types';
+import { CONSOLE_TYPE_META, CONSOLE_TYPES } from '../utils/consoleTypes';
 import { addDaysYmd, businessParts, formatDate, formatDateTime, formatDuration, formatTime, istToDate, money } from '../utils/format';
 import { serverNow } from '../utils/serverClock';
 
@@ -49,6 +50,8 @@ export default function NewSessionPage() {
   const [consoleId, setConsoleId] = useState<string | null>(params.get('console'));
   const consoles = useQuery({ queryKey: ['consoles'], queryFn: api.consoles.list });
   const selectedConsole = consoles.data?.find((c) => c.id === consoleId) ?? null;
+  // Type filter buttons only for types the center actually has (PS5, PS4, Steering Wheel, VR).
+  const availableTypes = CONSOLE_TYPES.filter((t) => (consoles.data ?? []).some((c) => c.console_type === t && c.status !== 'DISABLED'));
   const visibleConsoles = (consoles.data ?? []).filter((c) => c.status !== 'DISABLED' && (typeFilter === 'ALL' || c.console_type === typeFilter));
 
   // ---- membership (optional): play on a prepaid package's hours
@@ -239,14 +242,14 @@ export default function NewSessionPage() {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-semibold text-ink">2 · Console</h2>
               <div className="inline-flex rounded-lg border border-hairline p-0.5" role="group" aria-label="Console type">
-                {(['ALL', 'PS5', 'PS4'] as const).map((t) => (
+                {(['ALL', ...availableTypes] as const).map((t) => (
                   <button
                     key={t}
                     aria-pressed={typeFilter === t}
                     onClick={() => setTypeFilter(t)}
                     className={clsx('rounded-md px-3 py-1 text-sm', typeFilter === t ? 'bg-ink text-white' : 'text-ink-2 hover:bg-plane')}
                   >
-                    {t === 'ALL' ? 'All' : t}
+                    {t === 'ALL' ? 'All' : CONSOLE_TYPE_META[t].label}
                   </button>
                 ))}
               </div>
@@ -345,7 +348,7 @@ export default function NewSessionPage() {
           <Card className="sticky top-6 p-5">
             <h2 className="mb-3 text-sm font-semibold text-ink">Summary</h2>
             <KeyValue label="Customer" value={customer?.name ?? '—'} />
-            <KeyValue label="Console" value={selectedConsole ? `${selectedConsole.console_number} (${selectedConsole.console_type})` : '—'} />
+            <KeyValue label="Console" value={selectedConsole ? `${selectedConsole.console_number} (${CONSOLE_TYPE_META[selectedConsole.console_type].label})` : '—'} />
             <KeyValue label="Start" value={windowValid ? formatDateTime(istToDate(win.start_date, win.start_time)) : '—'} />
             <KeyValue label="End" value={windowValid ? formatDateTime(istToDate(win.end_date, win.end_time)) : '—'} />
             <div className="my-3 border-t border-hairline" />

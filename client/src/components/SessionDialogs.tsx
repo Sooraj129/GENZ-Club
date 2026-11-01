@@ -5,6 +5,7 @@ import { api } from '../api';
 import { errorMessage } from '../api/client';
 import type { Session } from '../types';
 import { formatDuration, formatTime, money } from '../utils/format';
+import { consoleTypeLabel } from '../utils/consoleTypes';
 import { serverNow } from '../utils/serverClock';
 import { Button, Field, Input, KeyValue, Modal, Spinner } from './ui';
 
@@ -132,7 +133,7 @@ export function ResumeSessionDialog({ session, onClose }: { session: Session | n
             <KeyValue label="Will end at" value={formatTime(new Date(serverNow() + left * 60_000))} />
           </div>
           <fieldset>
-            <legend className="mb-1.5 text-sm font-medium text-ink">Console ({session.console_type})</legend>
+            <legend className="mb-1.5 text-sm font-medium text-ink">Console ({consoleTypeLabel(session.console_type)})</legend>
             <div className="grid grid-cols-2 gap-2">
               {sameType.map((c) => (
                 <label

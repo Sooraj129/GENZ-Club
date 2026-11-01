@@ -2,7 +2,7 @@ import { query, type Queryable } from '../config/db.js';
 import type { ConsoleStatus, ConsoleType, GameConsole } from '../types/index.js';
 
 const SELECT = `
-  SELECT c.id, c.console_number, c.console_type, c.hourly_rate AS rate_override,
+  SELECT c.id, c.console_number, c.console_type, p.sort_order AS type_order, c.hourly_rate AS rate_override,
          COALESCE(c.hourly_rate, p.hourly_rate) AS hourly_rate,
          c.status, c.created_at, c.updated_at
   FROM consoles c
@@ -32,7 +32,7 @@ export const consoleRepository = {
          WHERE s.console_id = x.id AND s.status = 'SCHEDULED'
          ORDER BY s.start_datetime LIMIT 1
        ) nxt ON TRUE
-       ORDER BY x.console_type DESC, x.console_number`,
+       ORDER BY x.type_order, x.console_number`,
       [],
       db,
     );

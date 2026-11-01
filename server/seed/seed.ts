@@ -84,7 +84,8 @@ async function main() {
       );
     }
     await db.query(
-      `INSERT INTO pricing (console_type, hourly_rate) VALUES ('PS4', 120), ('PS5', 140)
+      `INSERT INTO pricing (console_type, hourly_rate, label, sort_order)
+       VALUES ('PS5', 140, 'PS5', 1), ('PS4', 120, 'PS4', 2), ('STEERING', 150, 'Steering Wheel', 3), ('VR', 200, 'VR', 4)
        ON CONFLICT (console_type) DO NOTHING`,
     );
     for (const c of CONSOLES) {

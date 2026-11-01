@@ -8,6 +8,7 @@ import { ConsoleStatusBadge, ConsoleTypeTag } from '../components/StatusBadge';
 import { Button, Card, EmptyState, ErrorState, Field, Input, Modal, PageHeader, Select, Spinner, Table, Td, Th } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
 import type { ConsoleType, GameConsole } from '../types';
+import { CONSOLE_TYPE_META, CONSOLE_TYPES } from '../utils/consoleTypes';
 import { formatTime, money } from '../utils/format';
 
 type AdminStatus = 'AVAILABLE' | 'MAINTENANCE' | 'DISABLED';
@@ -60,13 +61,16 @@ function ConsoleForm({ open, console: c, onClose }: { open: boolean; console: Ga
       }
     >
       <div className="space-y-4">
-        <Field label="Console number" htmlFor="cn" hint="e.g. PS5-04">
+        <Field label="Console number" htmlFor="cn" hint="e.g. PS5-04, STEER-01, VR-01">
           <Input id="cn" value={number} onChange={(e) => setNumber(e.target.value)} autoFocus />
         </Field>
         <Field label="Type" htmlFor="ct">
           <Select id="ct" value={type} onChange={(e) => setType(e.target.value as ConsoleType)}>
-            <option value="PS5">PS5</option>
-            <option value="PS4">PS4</option>
+            {CONSOLE_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {CONSOLE_TYPE_META[t].label}
+              </option>
+            ))}
           </Select>
         </Field>
         <Field label="Hourly rate override (optional)" htmlFor="cr" hint="Leave empty to use the standard price for this type (Settings → Pricing)">

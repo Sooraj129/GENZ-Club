@@ -1,5 +1,9 @@
 export type Role = 'ADMIN' | 'STAFF';
-export type ConsoleType = 'PS4' | 'PS5';
+/** PS5, PS4, racing steering-wheel rig, VR station. */
+export type ConsoleType = 'PS5' | 'PS4' | 'STEERING' | 'VR';
+
+/** Revenue per console type. */
+export type ByType = Record<ConsoleType, number>;
 export type ConsoleStatus = 'AVAILABLE' | 'RESERVED' | 'PLAYING' | 'MAINTENANCE' | 'DISABLED';
 export type SessionStatus = 'SCHEDULED' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
 export type PaymentStatus = 'PENDING' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED';
@@ -139,6 +143,8 @@ export interface InvoiceDetail extends Invoice {
 export interface Pricing {
   id: string;
   console_type: ConsoleType;
+  /** Display name, e.g. "Steering Wheel". */
+  label: string;
   hourly_rate: number;
   updated_at: string;
 }
@@ -176,8 +182,7 @@ export interface DashboardSummary {
 export interface RevenuePoint {
   date: string;
   revenue: number;
-  ps4_revenue: number;
-  ps5_revenue: number;
+  by_type: ByType;
   membership_revenue: number;
   sessions: number;
 }
@@ -189,8 +194,7 @@ export interface ReportData {
   summary: {
     sessions: number;
     revenue: number;
-    ps4_revenue: number;
-    ps5_revenue: number;
+    by_type: ByType;
     membership_revenue: number;
     collected: number;
     played_minutes: number;
@@ -203,8 +207,7 @@ export interface ReportData {
     date: string;
     sessions: number;
     revenue: number;
-    ps4_revenue: number;
-    ps5_revenue: number;
+    by_type: ByType;
     membership_revenue: number;
     collected: number;
     played_minutes: number;

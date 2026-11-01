@@ -20,6 +20,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useDebounce } from '../hooks/useDebounce';
 import { useUrlFilters } from '../hooks/useUrlFilters';
 import type { ConsoleType, MembershipPlan } from '../types';
+import { CONSOLE_TYPE_META, CONSOLE_TYPES, consoleTypeLabel } from '../utils/consoleTypes';
 import { formatDate, formatDuration, money } from '../utils/format';
 
 // ---------------------------------------------------------------- plans (admin)
@@ -92,8 +93,11 @@ function PlanForm({ open, plan, onClose }: { open: boolean; plan: MembershipPlan
           <Field label="Console" htmlFor="pl-type">
             <Select id="pl-type" value={form.console_type} onChange={set('console_type')}>
               <option value="">Any console</option>
-              <option value="PS5">PS5 only</option>
-              <option value="PS4">PS4 only</option>
+              {CONSOLE_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {CONSOLE_TYPE_META[t].label} only
+                </option>
+              ))}
             </Select>
           </Field>
           <Field label="Valid for (days)" htmlFor="pl-days">
@@ -148,7 +152,7 @@ function PlansTab() {
                   <Td className="font-medium">{p.name}</Td>
                   <Td className="tabular text-right">{money(p.price)}</Td>
                   <Td>{formatDuration(p.minutes)}</Td>
-                  <Td>{p.console_type ?? 'Any'}</Td>
+                  <Td>{p.console_type ? consoleTypeLabel(p.console_type) : 'Any'}</Td>
                   <Td>{p.validity_days} days</Td>
                   <Td>{p.is_active ? <span className="text-good-ink">On sale</span> : <span className="text-ink-muted">Retired</span>}</Td>
                   <Td className="text-right">
@@ -226,7 +230,7 @@ function MembersTab() {
                     <Td>
                       <p className="font-medium">{m.plan_name}</p>
                       <p className="text-xs text-ink-muted">
-                        {money(m.price)} · {m.console_type ?? 'any console'}
+                        {money(m.price)} · {m.console_type ? consoleTypeLabel(m.console_type) : 'any console'}
                       </p>
                     </Td>
                     <Td>

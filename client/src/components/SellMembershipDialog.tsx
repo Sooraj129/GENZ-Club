@@ -13,6 +13,7 @@ import { errorMessage } from '../api/client';
 import { useDebounce } from '../hooks/useDebounce';
 import type { Customer } from '../types';
 import { formatDuration, money } from '../utils/format';
+import { consoleTypeLabel } from '../utils/consoleTypes';
 import { PaymentDialog, type PayableInvoice } from './PaymentDialog';
 import { Button, EmptyState, Input, Modal, Spinner } from './ui';
 
@@ -139,7 +140,7 @@ export function SellMembershipDialog({
                     <span>
                       <span className="block font-semibold text-ink">{p.name}</span>
                       <span className="block text-xs text-ink-2">
-                        {formatDuration(p.minutes)} play · {p.console_type ?? 'any console'} · valid {p.validity_days} days
+                        {formatDuration(p.minutes)} play · {p.console_type ? consoleTypeLabel(p.console_type) : 'any console'} · valid {p.validity_days} days
                       </span>
                     </span>
                     <span className="text-lg font-semibold tabular text-ink">{money(p.price)}</span>

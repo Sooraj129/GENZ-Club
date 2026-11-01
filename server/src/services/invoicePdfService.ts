@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit';
 import type { InvoiceView } from '../repositories/invoiceRepository.js';
 import type { PaymentView } from '../repositories/paymentRepository.js';
+import { CONSOLE_TYPE_LABELS } from '../types/index.js';
 import { formatBusinessDateTime, formatDuration } from '../utils/time.js';
 import type { BusinessSettings } from './settingsService.js';
 
@@ -61,7 +62,7 @@ export const invoicePdfService = {
         if (invoice.membership_expires_at) row('Valid until', formatBusinessDateTime(invoice.membership_expires_at));
       } else {
         // Gaming session
-        row('Console', `${invoice.console_number} (${invoice.console_type})`);
+        row('Console', `${invoice.console_number} (${invoice.console_type ? CONSOLE_TYPE_LABELS[invoice.console_type] : ''})`);
         if (invoice.start_datetime) row('Start', formatBusinessDateTime(invoice.start_datetime));
         const end = invoice.actual_end_datetime ?? invoice.end_datetime;
         if (end) row('End', formatBusinessDateTime(end));

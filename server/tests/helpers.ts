@@ -27,7 +27,7 @@ export async function createCustomer(name = 'Test Customer') {
   return rows[0] as { id: string; name: string; phone: string };
 }
 
-export async function createConsole(type: 'PS4' | 'PS5' = 'PS5', status = 'AVAILABLE') {
+export async function createConsole(type: 'PS4' | 'PS5' | 'STEERING' | 'VR' = 'PS5', status = 'AVAILABLE') {
   counter++;
   const { rows } = await pool.query(
     `INSERT INTO consoles (console_number, console_type, status) VALUES ($1, $2, $3) RETURNING id, console_number`,

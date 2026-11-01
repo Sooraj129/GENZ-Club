@@ -11,12 +11,12 @@ import { formatDateTime } from '../utils/format';
 export default function SettingsPage() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['settings'], queryFn: api.settings.get });
-  const [prices, setPrices] = useState<Record<ConsoleType, string>>({ PS4: '', PS5: '' });
+  const [prices, setPrices] = useState<Partial<Record<ConsoleType, string>>>({});
   const [biz, setBiz] = useState<BusinessSettings | null>(null);
 
   useEffect(() => {
     if (!q.data) return;
-    setPrices(Object.fromEntries(q.data.pricing.map((p) => [p.console_type, String(p.hourly_rate)])) as Record<ConsoleType, string>);
+    setPrices(Object.fromEntries(q.data.pricing.map((p) => [p.console_type, String(p.hourly_rate)])) as Partial<Record<ConsoleType, string>>);
     setBiz(q.data.settings);
   }, [q.data]);
 
@@ -49,7 +49,7 @@ export default function SettingsPage() {
           <p className="mt-1 text-sm text-ink-2">New sessions use these hourly rates. Existing sessions keep the rate they were booked at.</p>
           <div className="mt-4 space-y-4">
             {q.data!.pricing.map((p) => (
-              <Field key={p.console_type} label={`${p.console_type} hourly price (₹)`} htmlFor={`price-${p.console_type}`} hint={`Last changed ${formatDateTime(p.updated_at)}`}>
+              <Field key={p.console_type} label={`${p.label} hourly price (₹)`} htmlFor={`price-${p.console_type}`} hint={`Last changed ${formatDateTime(p.updated_at)}`}>
                 <div className="flex items-center gap-3">
                   <Input
                     id={`price-${p.console_type}`}

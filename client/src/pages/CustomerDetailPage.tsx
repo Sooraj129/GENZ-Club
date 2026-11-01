@@ -10,6 +10,7 @@ import { BalanceBar, MembershipStateBadge } from '../components/MembershipBits';
 import { PaymentStatusBadge, SessionStatusBadge } from '../components/StatusBadge';
 import { Button, Card, EmptyState, ErrorState, PageHeader, Pagination, Spinner, StatCard, Table, Td, Th } from '../components/ui';
 import { formatDate, formatDuration, formatTime, money } from '../utils/format';
+import { consoleTypeLabel } from '../utils/consoleTypes';
 
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -63,7 +64,7 @@ export default function CustomerDetailPage() {
                     <BadgePercent className="size-4 text-violet-600" aria-hidden /> {m.plan_name} <MembershipStateBadge state={m.state} />
                   </p>
                   <p className="text-xs text-ink-muted">
-                    {m.console_type ?? 'Any console'} · bought {formatDate(m.purchased_at)} · expires {formatDate(m.expires_at)}
+                    {m.console_type ? consoleTypeLabel(m.console_type) : 'Any console'} · bought {formatDate(m.purchased_at)} · expires {formatDate(m.expires_at)}
                   </p>
                 </div>
                 <BalanceBar left={m.minutes_left} total={m.minutes_total} />
@@ -103,7 +104,7 @@ export default function CustomerDetailPage() {
                         <p className="text-xs text-ink-muted">{formatTime(s.start_datetime)}</p>
                       </Td>
                       <Td>
-                        {s.console_number} <span className="text-xs text-ink-muted">{s.console_type}</span>
+                        {s.console_number} <span className="text-xs text-ink-muted">{consoleTypeLabel(s.console_type)}</span>
                       </Td>
                       <Td>{formatDuration(s.duration_minutes ?? s.booked_minutes)}</Td>
                       <Td className="tabular text-right">{money(s.final_amount ?? s.estimated_amount)}</Td>

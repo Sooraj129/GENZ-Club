@@ -3,7 +3,9 @@ import clsx from 'clsx';
 import { useMemo, useState } from 'react';
 import { api } from '../api';
 import { errorMessage } from '../api/client';
-import { ChartCard, Legend, RevenueByTypeChart, SERIES_COLORS, SessionsChart, UtilizationChart } from '../components/charts';
+import { ChartCard, RevenueByTypeChart, SessionsChart, TypeLegend, typesWithRevenue, UtilizationChart } from '../components/charts';
+import { ConsoleTypeTag } from '../components/StatusBadge';
+import { CONSOLE_TYPE_META, CONSOLE_TYPES } from '../utils/consoleTypes';
 import { Card, ErrorState, Field, Input, PageHeader, Select, Spinner, StatCard, Table, Td, Th } from '../components/ui';
 import { addDaysYmd, businessParts, formatDayLabel, formatDuration, money } from '../utils/format';
 import { serverNow } from '../utils/serverClock';
@@ -46,6 +48,8 @@ export default function ReportsPage() {
     enabled: preset !== 'custom' || Boolean(customValid),
   });
   const r = q.data;
+  // Console types that earned money in this period (each keeps its fixed colour).
+  const chartTypes = r ? typesWithRevenue(r.series) : CONSOLE_TYPES;
 
   return (
     <div>
@@ -94,20 +98,35 @@ export default function ReportsPage() {
         <p className="text-sm text-ink-muted">Choose a valid date range.</p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <StatCard label="Revenue" value={money(r.summary.revenue)} sub={`${money(r.summary.collected)} collected`} />
             <StatCard label="Sessions" value={r.summary.sessions} />
-            <StatCard label="PS5 revenue" value={money(r.summary.ps5_revenue)} />
-            <StatCard label="PS4 revenue" value={money(r.summary.ps4_revenue)} sub={r.summary.membership_revenue ? `+ ${money(r.summary.membership_revenue)} memberships sold` : undefined} />
             <StatCard label="Avg. session" value={formatDuration(r.summary.avg_duration_minutes)} />
             <StatCard label="Pending payments" value={money(r.summary.pending_payments)} sub={`Utilization ${r.summary.utilization_percent}%`} />
           </div>
 
+          {/* Revenue per console type (+ membership sales) */}
+          <Card className="mt-3 p-4">
+            <p className="mb-3 text-sm font-medium text-ink-2">Revenue by console type</p>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+              {CONSOLE_TYPES.map((t) => (
+                <div key={t} className="rounded-xl bg-plane px-3 py-2.5">
+                  <ConsoleTypeTag type={t} />
+                  <p className="mt-1 text-lg font-semibold tabular text-ink">{money(r.summary.by_type[t])}</p>
+                </div>
+              ))}
+              <div className="rounded-xl bg-violet-50 px-3 py-2.5">
+                <p className="text-xs font-medium text-violet-700">Memberships sold</p>
+                <p className="mt-1 text-lg font-semibold tabular text-ink">{money(r.summary.membership_revenue)}</p>
+              </div>
+            </div>
+          </Card>
+
           <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
             <ChartCard
               title="Revenue by date"
-              subtitle="PS5 vs PS4"
-              legend={<Legend items={[{ label: 'PS5', color: SERIES_COLORS.ps5 }, { label: 'PS4', color: SERIES_COLORS.ps4 }]} />}
+              subtitle="Session revenue by console type"
+              legend={<TypeLegend types={chartTypes} />}
             >
               <RevenueByTypeChart data={r.series} group={group} />
             </ChartCard>
@@ -152,8 +171,12 @@ export default function ReportsPage() {
                   <tr>
                     <Th>{group === 'day' ? 'Date' : group === 'week' ? 'Week of' : 'Month'}</Th>
                     <Th className="text-right">Sessions</Th>
-                    <Th className="text-right">PS5</Th>
-                    <Th className="text-right">PS4</Th>
+                    {chartTypes.map((t) => (
+                      <Th key={t} className="text-right">
+                        {CONSOLE_TYPE_META[t].label}
+                      </Th>
+                    ))}
+                    <Th className="text-right">Memberships</Th>
                     <Th className="text-right">Revenue</Th>
                     <Th className="text-right">Collected</Th>
                     <Th className="text-right">Avg. duration</Th>
@@ -164,8 +187,12 @@ export default function ReportsPage() {
                     <tr key={row.date}>
                       <Td className="tabular">{group === 'month' ? row.date.slice(0, 7) : formatDayLabel(row.date)}</Td>
                       <Td className="tabular text-right">{row.sessions}</Td>
-                      <Td className="tabular text-right">{money(row.ps5_revenue)}</Td>
-                      <Td className="tabular text-right">{money(row.ps4_revenue)}</Td>
+                      {chartTypes.map((t) => (
+                        <Td key={t} className="tabular text-right">
+                          {money(row.by_type[t])}
+                        </Td>
+                      ))}
+                      <Td className="tabular text-right">{money(row.membership_revenue)}</Td>
                       <Td className="tabular text-right font-medium">{money(row.revenue)}</Td>
                       <Td className="tabular text-right">{money(row.collected)}</Td>
                       <Td className="tabular text-right">{row.avg_duration_minutes ? formatDuration(row.avg_duration_minutes) : '—'}</Td>

@@ -10,6 +10,7 @@ import { PaymentStatusBadge } from '../components/StatusBadge';
 import { Button, ErrorState, Field, Input, Modal, Spinner } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDateTime, formatDuration, money, titleCase } from '../utils/format';
+import { consoleTypeLabel } from '../utils/consoleTypes';
 
 function Line({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
@@ -113,7 +114,7 @@ export default function InvoiceDetailPage() {
         ) : (
           // Gaming session
           <section className="border-b border-dashed border-ink/40 py-3">
-            <Line label="Console" value={`${inv.console_number} (${inv.console_type})`} />
+            <Line label="Console" value={`${inv.console_number} (${consoleTypeLabel(inv.console_type)})`} />
             <Line label="Start" value={formatDateTime(inv.start_datetime)} />
             <Line label="End" value={formatDateTime(inv.actual_end_datetime ?? inv.end_datetime)} />
             <Line label="Duration" value={formatDuration(inv.duration_minutes)} />

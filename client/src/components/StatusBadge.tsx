@@ -1,7 +1,8 @@
 import clsx from 'clsx';
 import { Ban, CheckCircle2, CircleDot, Clock, Gamepad2, PauseCircle, Wrench, XCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { ConsoleStatus, PaymentStatus, SessionStatus } from '../types';
+import type { ConsoleStatus, ConsoleType, PaymentStatus, SessionStatus } from '../types';
+import { CONSOLE_TYPE_META } from '../utils/consoleTypes';
 
 type Tone = 'good' | 'critical' | 'warning' | 'neutral' | 'info' | 'muted';
 
@@ -55,11 +56,18 @@ export const SessionStatusBadge = ({ status }: { status: SessionStatus }) => <Ba
 export const PaymentStatusBadge = ({ status }: { status: PaymentStatus | null }) =>
   status ? <Badge {...PAYMENT[status]} /> : <span className="text-xs text-ink-muted">—</span>;
 
-export function ConsoleTypeTag({ type }: { type: 'PS4' | 'PS5' }) {
+/** Console type with its fixed colour and icon, e.g. ● PS5, 🚗 Steering Wheel, 👓 VR. */
+export function ConsoleTypeTag({ type }: { type: ConsoleType }) {
+  const meta = CONSOLE_TYPE_META[type];
+  const Icon = meta.icon;
   return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-ink-2">
-      <span className="size-2 rounded-full" style={{ background: type === 'PS5' ? 'var(--color-series-1)' : 'var(--color-series-2)' }} aria-hidden />
-      {type}
+    <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-ink-2">
+      {type === 'PS5' || type === 'PS4' ? (
+        <span className="size-2 rounded-full" style={{ background: meta.color }} aria-hidden />
+      ) : (
+        <Icon className="size-3.5" style={{ color: meta.color }} aria-hidden />
+      )}
+      {meta.label}
     </span>
   );
 }

@@ -224,7 +224,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="mt-6 text-center text-xs text-slate-300 [text-shadow:0_1px_8px_rgba(0,0,0,0.9)]">PS5 · PS4 · Session &amp; billing control</p>
+        <p className="mt-6 text-center text-xs text-slate-300 [text-shadow:0_1px_8px_rgba(0,0,0,0.9)]">PS5 · PS4 · Steering Wheel · VR · Session &amp; billing control</p>
         </div>
       </div>
     </div>

@@ -3,7 +3,7 @@ import { CalendarPlus, Clock, Gamepad2, IndianRupee, Monitor, Wallet } from 'luc
 import { Link } from 'react-router';
 import { api } from '../api';
 import { errorMessage } from '../api/client';
-import { ChartCard, Legend, RevenueByTypeChart, SERIES_COLORS } from '../components/charts';
+import { ChartCard, RevenueByTypeChart, TypeLegend, typesWithRevenue } from '../components/charts';
 import { ConsoleStatusBadge, ConsoleTypeTag } from '../components/StatusBadge';
 import { Button, Card, EmptyState, ErrorState, PageHeader, Spinner, StatCard, Table, Td, Th } from '../components/ui';
 import { useServerNow } from '../hooks/useServerNow';
@@ -125,7 +125,7 @@ export default function DashboardPage() {
         <ChartCard
           title="Revenue — last 7 days"
           subtitle="Invoiced amount per day"
-          legend={<Legend items={[{ label: 'PS5', color: SERIES_COLORS.ps5 }, { label: 'PS4', color: SERIES_COLORS.ps4 }]} />}
+          legend={revenue.data ? <TypeLegend types={typesWithRevenue(revenue.data)} /> : undefined}
         >
           {revenue.isLoading ? <Spinner /> : revenue.isError ? <ErrorState message={errorMessage(revenue.error)} /> : <RevenueByTypeChart data={revenue.data!} />}
         </ChartCard>

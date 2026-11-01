@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import type { ByType, ConsoleType } from '../types';
+import { CONSOLE_TYPE_META, CONSOLE_TYPES } from '../utils/consoleTypes';
 import { formatDayLabel, money } from '../utils/format';
 
-// Chart chrome from the validated reference palette. Series colours are fixed
-// per entity: PS5 is always slot 1 (blue), PS4 always slot 2 (orange).
+// Chart chrome from the validated reference palette. Per-type series colours
+// live in utils/consoleTypes.ts (fixed per type: PS5 blue, PS4 orange, ...).
 const C = {
-  ps5: '#2a78d6',
-  ps4: '#eb6834',
   single: '#2a78d6',
   grid: '#e1e0d9',
   axis: '#898781',
@@ -63,8 +63,31 @@ export function ChartCard({ title, subtitle, legend, children }: { title: string
 
 const labelFor = (d: string, group?: string) => (group === 'month' ? d.slice(0, 7) : group === 'week' ? `Wk of ${formatDayLabel(d)}` : formatDayLabel(d));
 
-/** Revenue per period, stacked PS5 + PS4 (legend always shown for two series). */
-export function RevenueByTypeChart({ data, group, height = 260 }: { data: Array<{ date: string; ps4_revenue: number; ps5_revenue: number; revenue: number }>; group?: string; height?: number }) {
+/** Console types that earned anything in `data` (all of them if nothing earned yet). */
+export function typesWithRevenue(data: Array<{ by_type: ByType }>): ConsoleType[] {
+  const used = CONSOLE_TYPES.filter((t) => data.some((d) => (d.by_type?.[t] ?? 0) > 0));
+  return used.length ? used : CONSOLE_TYPES;
+}
+
+/** Legend for the per-type revenue chart (colour + name for each type shown). */
+export function TypeLegend({ types }: { types: ConsoleType[] }) {
+  return <Legend items={types.map((t) => ({ label: CONSOLE_TYPE_META[t].label, color: CONSOLE_TYPE_META[t].color }))} />;
+}
+
+/**
+ * Revenue per period, stacked by console type (PS5, PS4, Steering Wheel, VR).
+ * Only types with revenue in the data are drawn; each keeps its fixed colour.
+ */
+export function RevenueByTypeChart({
+  data,
+  group,
+  height = 260,
+}: {
+  data: Array<{ date: string; by_type: ByType; revenue: number }>;
+  group?: string;
+  height?: number;
+}) {
+  const types = typesWithRevenue(data);
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="25%">
@@ -78,16 +101,26 @@ export function RevenueByTypeChart({ data, group, height = 260 }: { data: Array<
               <TooltipBox
                 title={labelFor(String(label), group)}
                 rows={[
-                  { label: 'PS5', value: money(payload[0].payload.ps5_revenue), color: C.ps5 },
-                  { label: 'PS4', value: money(payload[0].payload.ps4_revenue), color: C.ps4 },
+                  ...types.map((t) => ({ label: CONSOLE_TYPE_META[t].label, value: money(payload[0].payload.by_type[t]), color: CONSOLE_TYPE_META[t].color })),
                   { label: 'Total', value: money(payload[0].payload.revenue) },
                 ]}
               />
             ) : null
           }
         />
-        <Bar isAnimationActive={false} dataKey="ps5_revenue" stackId="r" fill={C.ps5} stroke={C.surface} strokeWidth={2} name="PS5" />
-        <Bar isAnimationActive={false} dataKey="ps4_revenue" stackId="r" fill={C.ps4} stroke={C.surface} strokeWidth={2} radius={[4, 4, 0, 0]} name="PS4" />
+        {types.map((t, i) => (
+          <Bar
+            key={t}
+            isAnimationActive={false}
+            dataKey={(d: { by_type: ByType }) => d.by_type[t]}
+            stackId="r"
+            fill={CONSOLE_TYPE_META[t].color}
+            stroke={C.surface}
+            strokeWidth={2}
+            radius={i === types.length - 1 ? [4, 4, 0, 0] : undefined}
+            name={CONSOLE_TYPE_META[t].label}
+          />
+        ))}
       </BarChart>
     </ResponsiveContainer>
   );
@@ -112,7 +145,7 @@ export function SessionsChart({ data, group, height = 240 }: { data: Array<{ dat
   );
 }
 
-export function UtilizationChart({ data, height = 240 }: { data: Array<{ console_number: string; console_type: 'PS4' | 'PS5'; utilization_percent: number; played_minutes: number }>; height?: number }) {
+export function UtilizationChart({ data, height = 240 }: { data: Array<{ console_number: string; console_type: ConsoleType; utilization_percent: number; played_minutes: number }>; height?: number }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 0 }} barCategoryGap="30%">
@@ -124,7 +157,7 @@ export function UtilizationChart({ data, height = 240 }: { data: Array<{ console
           content={({ active, payload }) =>
             active && payload?.length ? (
               <TooltipBox
-                title={`${payload[0].payload.console_number} (${payload[0].payload.console_type})`}
+                title={`${payload[0].payload.console_number} (${CONSOLE_TYPE_META[payload[0].payload.console_type as ConsoleType].label})`}
                 rows={[
                   { label: 'Utilization', value: `${payload[0].payload.utilization_percent}%` },
                   { label: 'Hours played', value: (payload[0].payload.played_minutes / 60).toFixed(1) },
@@ -139,4 +172,3 @@ export function UtilizationChart({ data, height = 240 }: { data: Array<{ console
   );
 }
 
-export const SERIES_COLORS = C;

@@ -1,8 +1,17 @@
 export const ROLES = ['ADMIN', 'STAFF'] as const;
 export type Role = (typeof ROLES)[number];
 
-export const CONSOLE_TYPES = ['PS4', 'PS5'] as const;
+/** Every kind of station the center rents out. Prices live in the `pricing` table. */
+export const CONSOLE_TYPES = ['PS5', 'PS4', 'STEERING', 'VR'] as const;
 export type ConsoleType = (typeof CONSOLE_TYPES)[number];
+
+/** Human-readable names (used on invoices/PDFs). */
+export const CONSOLE_TYPE_LABELS: Record<ConsoleType, string> = {
+  PS5: 'PS5',
+  PS4: 'PS4',
+  STEERING: 'Steering Wheel',
+  VR: 'VR',
+};
 
 export const CONSOLE_STATUSES = ['AVAILABLE', 'RESERVED', 'PLAYING', 'MAINTENANCE', 'DISABLED'] as const;
 export type ConsoleStatus = (typeof CONSOLE_STATUSES)[number];

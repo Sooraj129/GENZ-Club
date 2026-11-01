@@ -7,6 +7,7 @@ import { ConsoleTypeTag, PaymentStatusBadge, SessionStatusBadge } from '../compo
 import { Button, Card, EmptyState, ErrorState, Field, Input, PageHeader, Pagination, Select, Spinner, Table, Td, Th } from '../components/ui';
 import { useDebounce } from '../hooks/useDebounce';
 import { useUrlFilters } from '../hooks/useUrlFilters';
+import { CONSOLE_TYPE_META, CONSOLE_TYPES } from '../utils/consoleTypes';
 import { formatDate, formatDuration, formatTime, money } from '../utils/format';
 
 const KEYS = ['from', 'to', 'customer', 'phone', 'console_id', 'console_type', 'status', 'payment_status'] as const;
@@ -51,8 +52,11 @@ export default function SessionHistoryPage() {
           <Field label="Type" htmlFor="f-type">
             <Select id="f-type" value={filters.console_type} onChange={(e) => setFilter('console_type', e.target.value)}>
               <option value="">All</option>
-              <option value="PS5">PS5</option>
-              <option value="PS4">PS4</option>
+              {CONSOLE_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {CONSOLE_TYPE_META[t].label}
+                </option>
+              ))}
             </Select>
           </Field>
           <Field label="Status" htmlFor="f-status">

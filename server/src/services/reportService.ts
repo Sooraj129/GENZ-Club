@@ -1,6 +1,7 @@
 import { query, SQL_TZ } from '../config/db.js';
 import { consoleRepository } from '../repositories/consoleRepository.js';
 import { sessionRepository } from '../repositories/sessionRepository.js';
+import { CONSOLE_TYPES, type ConsoleType } from '../types/index.js';
 import { addDays, businessDate, now, startOfBusinessDay } from '../utils/time.js';
 
 export type ReportGrouping = 'day' | 'week' | 'month';
@@ -9,8 +10,8 @@ interface DailyRow {
   date: string;
   sessions: number;
   revenue: number;
-  ps4_revenue: number;
-  ps5_revenue: number;
+  /** Session revenue per console type, e.g. { PS5: 840, PS4: 240, STEERING: 0, VR: 400 }. */
+  by_type: Record<ConsoleType, number>;
   membership_revenue: number;
   collected: number;
   played_minutes: number;
@@ -18,6 +19,15 @@ interface DailyRow {
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** { PS5: 0, PS4: 0, STEERING: 0, VR: 0 } */
+const zeroByType = () => Object.fromEntries(CONSOLE_TYPES.map((t) => [t, 0])) as Record<ConsoleType, number>;
+
+/** Adds b's per-type amounts into a (types missing from b count as 0). */
+function addByType(a: Record<ConsoleType, number>, b: Partial<Record<ConsoleType, number>>) {
+  for (const t of CONSOLE_TYPES) a[t] = round2(a[t] + Number(b[t] ?? 0));
+  return a;
+}
 
 /** Monday of the ISO week containing `date`. */
 function weekStart(date: string): string {
@@ -53,8 +63,9 @@ async function dailySeries(from: string, to: string): Promise<DailyRow[]> {
      SELECT to_char(days.day, 'YYYY-MM-DD') AS date,
        (SELECT count(*) FROM ses WHERE ses.day = days.day) AS sessions,
        (SELECT COALESCE(sum(total), 0) FROM inv WHERE inv.day = days.day) AS revenue,
-       (SELECT COALESCE(sum(total), 0) FROM inv WHERE inv.day = days.day AND console_type = 'PS4') AS ps4_revenue,
-       (SELECT COALESCE(sum(total), 0) FROM inv WHERE inv.day = days.day AND console_type = 'PS5') AS ps5_revenue,
+       (SELECT COALESCE(json_object_agg(t.console_type, t.amount), '{}'::json)
+          FROM (SELECT console_type, sum(total) AS amount FROM inv
+                WHERE inv.day = days.day AND console_type IS NOT NULL GROUP BY console_type) t) AS by_type,
        (SELECT COALESCE(sum(total), 0) FROM inv WHERE inv.day = days.day AND membership_id IS NOT NULL) AS membership_revenue,
        (SELECT COALESCE(sum(amount), 0) FROM pay WHERE pay.day = days.day) AS collected,
        (SELECT COALESCE(sum(duration_minutes), 0) FROM ses WHERE ses.day = days.day AND status IN ('COMPLETED', 'EXPIRED')) AS played_minutes,
@@ -62,7 +73,8 @@ async function dailySeries(from: string, to: string): Promise<DailyRow[]> {
      FROM days ORDER BY days.day`,
     [from, to, fromTs, toTs],
   );
-  return rows;
+  // Make sure every console type is present (0 when nothing was played).
+  return rows.map((r) => ({ ...r, by_type: addByType(zeroByType(), r.by_type ?? {}) }));
 }
 
 export const reportService = {
@@ -101,7 +113,7 @@ export const reportService = {
     const to = businessDate(now());
     const from = addDays(to, -(days - 1));
     const rows = await dailySeries(from, to);
-    return rows.map((r) => ({ date: r.date, revenue: r.revenue, ps4_revenue: r.ps4_revenue, ps5_revenue: r.ps5_revenue, membership_revenue: r.membership_revenue, sessions: r.sessions }));
+    return rows.map((r) => ({ date: r.date, revenue: r.revenue, by_type: r.by_type, membership_revenue: r.membership_revenue, sessions: r.sessions }));
   },
 
   async report(from: string, to: string, group: ReportGrouping) {
@@ -114,11 +126,10 @@ export const reportService = {
     const buckets = new Map<string, DailyRow>();
     for (const row of daily) {
       const key = bucketOf(row.date);
-      const b = buckets.get(key) ?? { date: key, sessions: 0, revenue: 0, ps4_revenue: 0, ps5_revenue: 0, membership_revenue: 0, collected: 0, played_minutes: 0, finished_sessions: 0 };
+      const b = buckets.get(key) ?? { date: key, sessions: 0, revenue: 0, by_type: zeroByType(), membership_revenue: 0, collected: 0, played_minutes: 0, finished_sessions: 0 };
       b.sessions += row.sessions;
       b.revenue = round2(b.revenue + row.revenue);
-      b.ps4_revenue = round2(b.ps4_revenue + row.ps4_revenue);
-      b.ps5_revenue = round2(b.ps5_revenue + row.ps5_revenue);
+      addByType(b.by_type, row.by_type);
       b.membership_revenue = round2(b.membership_revenue + row.membership_revenue);
       b.collected = round2(b.collected + row.collected);
       b.played_minutes += row.played_minutes;
@@ -137,10 +148,14 @@ export const reportService = {
               COALESCE(sum(s.duration_minutes), 0) AS played_minutes,
               COALESCE(sum(i.total) FILTER (WHERE i.payment_status <> 'CANCELLED'), 0) AS revenue
        FROM consoles co
+       JOIN pricing p ON p.console_type = co.console_type
        LEFT JOIN sessions s ON s.console_id = co.id AND s.status IN ('COMPLETED', 'EXPIRED')
             AND s.start_datetime >= $1 AND s.start_datetime < $2
        LEFT JOIN invoices i ON i.session_id = s.id
-       GROUP BY co.id ORDER BY co.console_type DESC, co.console_number`,
+       GROUP BY co.id, p.sort_order
+       -- out-of-service consoles only appear if they were played in this period
+       HAVING co.status <> 'DISABLED' OR count(s.id) > 0
+       ORDER BY p.sort_order, co.console_number`,
       [fromTs, toTs],
     );
     const { rows: methods } = await query(
@@ -159,14 +174,13 @@ export const reportService = {
       (t, r) => ({
         sessions: t.sessions + r.sessions,
         revenue: round2(t.revenue + r.revenue),
-        ps4_revenue: round2(t.ps4_revenue + r.ps4_revenue),
-        ps5_revenue: round2(t.ps5_revenue + r.ps5_revenue),
+        by_type: addByType(t.by_type, r.by_type),
         membership_revenue: round2(t.membership_revenue + r.membership_revenue),
         collected: round2(t.collected + r.collected),
         played_minutes: t.played_minutes + r.played_minutes,
         finished_sessions: t.finished_sessions + r.finished_sessions,
       }),
-      { sessions: 0, revenue: 0, ps4_revenue: 0, ps5_revenue: 0, membership_revenue: 0, collected: 0, played_minutes: 0, finished_sessions: 0 },
+      { sessions: 0, revenue: 0, by_type: zeroByType(), membership_revenue: 0, collected: 0, played_minutes: 0, finished_sessions: 0 },
     );
     const consoleRows = consoles.map((c) => ({
       ...c,
