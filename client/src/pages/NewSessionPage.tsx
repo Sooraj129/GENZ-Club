@@ -15,7 +15,7 @@ import { CONSOLE_TYPE_META, CONSOLE_TYPES } from '../utils/consoleTypes';
 import { addDaysYmd, businessParts, formatDate, formatDateTime, formatDuration, formatTime, istToDate, money } from '../utils/format';
 import { serverNow } from '../utils/serverClock';
 
-const QUICK_DURATIONS = [10, 20, 30, 60, 90, 120, 180];
+const QUICK_DURATIONS = [10, 20, 30, 60, 90, 120, 180, 300];
 const UNBOOKABLE = new Set(['MAINTENANCE', 'DISABLED']);
 
 function endFrom(date: string, time: string, minutes: number) {
