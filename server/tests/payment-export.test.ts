@@ -58,10 +58,12 @@ describe('payments Excel export', () => {
     const sheet = wb.getWorksheet(dmy(today))!;
     const rows = sheet.getSheetValues().filter(Boolean) as unknown[][];
     const dataRows = rows.slice(2, -1); // skip title + header, drop total
-    const sum = dataRows.reduce((s, r) => s + Number(r[7] ?? 0), 0);
+    const sum = dataRows.reduce((s, r) => s + Number(r[8] ?? 0), 0);
     expect(dataRows.length).toBeGreaterThanOrEqual(2);
-    expect(Number(rows.at(-1)![7])).toBeCloseTo(sum, 2);
-    expect(JSON.stringify(rows)).not.toContain('Excel Cust 9'); // no phone numbers
+    expect(Number(rows.at(-1)![8])).toBeCloseTo(sum, 2);
+    // header includes Phone, and every payment row has a 10-digit phone
+    expect(rows[1]).toContain('Phone');
+    for (const r of dataRows) expect(String(r[4])).toMatch(/^[6-9]\d{9}$/);
     expect(a.amount).toBe(140);
 
     // Summary grand total = sum of both days

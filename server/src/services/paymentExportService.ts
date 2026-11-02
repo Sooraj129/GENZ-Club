@@ -4,8 +4,8 @@
  *   "Summary" sheet   one row per date: number of payments, Cash, UPI, Card, total
  *   one sheet per date (e.g. "01-11-2026") listing that day's payments + a total row
  *
- * Dates are business dates (Asia/Kolkata). Customers' phone numbers are left
- * out on purpose — same privacy rule as on invoices.
+ * Dates are business dates (Asia/Kolkata). Includes each customer's phone
+ * number (walk-ins show the shop's default number).
  */
 import ExcelJS from 'exceljs';
 import type { PaymentView } from '../repositories/paymentRepository.js';
@@ -78,6 +78,7 @@ export const paymentExportService = {
         { key: 'time', width: 11 },
         { key: 'invoice', width: 20 },
         { key: 'customer', width: 22 },
+        { key: 'phone', width: 14 },
         { key: 'method', width: 9 },
         { key: 'reference', width: 18 },
         { key: 'by', width: 18 },
@@ -85,12 +86,13 @@ export const paymentExportService = {
       ];
       ws.addRow([`Payments on ${dmy(day)}`]).font = { bold: true, size: 13 };
       ws.addRow([]);
-      styleHeader(ws.addRow(['Time', 'Invoice', 'Customer', 'Method', 'Reference', 'Processed by', 'Amount']));
+      styleHeader(ws.addRow(['Time', 'Invoice', 'Customer', 'Phone', 'Method', 'Reference', 'Processed by', 'Amount']));
       for (const p of list) {
         ws.addRow({
           time: timeFmt.format(p.paid_at).toUpperCase(),
           invoice: p.invoice_number,
           customer: p.customer_name,
+          phone: p.customer_phone,
           method: METHOD_LABEL[p.payment_method] ?? p.payment_method,
           reference: p.reference ?? '',
           by: p.processed_by_name ?? '',
