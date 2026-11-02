@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { CreditCard } from 'lucide-react';
+import { CreditCard, FileSpreadsheet } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Link } from 'react-router';
 import { api } from '../api';
 import { errorMessage } from '../api/client';
@@ -17,6 +18,20 @@ export default function PaymentsPage() {
   const { filters, page, setFilter, setPage, reset, active } = useUrlFilters(KEYS);
   const search = useDebounce(filters.search, 300);
   const [paying, setPaying] = useState<PayableInvoice | null>(null);
+
+  // Excel export of "Payments received" with the current filters (no dates → today).
+  const [exporting, setExporting] = useState(false);
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      const name = await api.payments.exportExcel({ from: filters.from, to: filters.to, method: filters.method, search: filters.search });
+      toast.success(`Downloaded ${name}`);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const outstanding = useQuery({
     queryKey: ['invoices', 'outstanding'],
@@ -86,7 +101,19 @@ export default function PaymentsPage() {
         )}
       </Card>
 
-      <h2 className="mb-3 text-sm font-semibold text-ink">Payments received</h2>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-ink">Payments received</h2>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<FileSpreadsheet className="size-4 text-emerald-600" aria-hidden />}
+          loading={exporting}
+          onClick={exportExcel}
+          title="Summary + one sheet per date. Uses the filters below; no dates = today."
+        >
+          Export Excel
+        </Button>
+      </div>
       <Card className="mb-4 p-4">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Field label="Search" htmlFor="p-search">

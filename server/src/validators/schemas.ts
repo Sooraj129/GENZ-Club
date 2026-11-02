@@ -179,6 +179,16 @@ export const paymentListQuery = paginationSchema.extend({
   search: opt(z.string().trim().max(100)),
 });
 
+/** Excel export: same filters, no paging. Range is capped at one year. */
+export const paymentExportQuery = z
+  .object({
+    from: opt(dateSchema),
+    to: opt(dateSchema),
+    method: opt(z.enum(PAYMENT_METHODS)),
+    search: opt(z.string().trim().max(100)),
+  })
+  .refine((q) => !q.from || !q.to || q.from <= q.to, { message: 'From date must be before To date', path: ['from'] });
+
 // ------------------------------------------------------- reports / settings
 export const reportQuery = z
   .object({ from: dateSchema, to: dateSchema, group: z.enum(['day', 'week', 'month']).default('day') })

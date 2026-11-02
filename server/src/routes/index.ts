@@ -100,6 +100,7 @@ router.post('/invoices/:id/cancel', adminOnly, invoiceController.cancel);
 // ---- Payments
 router.post('/payments', paymentController.create);
 router.get('/payments', paymentController.list);
+router.get('/payments/export', paymentController.exportExcel);
 router.put('/payments/:id', adminOnly, paymentController.update);
 
 // ---- Dashboard & reports

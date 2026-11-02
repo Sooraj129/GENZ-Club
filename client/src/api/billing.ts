@@ -46,6 +46,27 @@ export const paymentsApi = {
   /** GET /api/payments?from=&to=&method=&search= */
   list: (params: QueryParams) => getPage<Payment>('/payments', params),
 
+  /**
+   * GET /api/payments/export — downloads an Excel file: a Summary sheet plus one
+   * sheet per date. Uses the same filters as the list; no dates → today.
+   */
+  async exportExcel(params: QueryParams) {
+    const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v !== undefined && v !== null));
+    const res = await http.get('/payments/export', { params: clean, responseType: 'blob' });
+    // Use the server's file name, e.g. payments_2026-11-01_to_2026-11-02.xlsx
+    const disposition = String(res.headers['content-disposition'] ?? '');
+    const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? 'payments.xlsx';
+    const url = URL.createObjectURL(res.data as Blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return name;
+  },
+
   /** POST /api/payments — returns the payment and the updated invoice. `replayed` = this was a retry. */
   create: (body: PaymentInput) => post<{ payment: Payment; invoice: InvoiceDetail; replayed: boolean }>('/payments', body),
 

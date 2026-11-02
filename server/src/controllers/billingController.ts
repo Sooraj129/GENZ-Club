@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { currentUser } from '../middleware/auth.js';
 import { invoicePdfService } from '../services/invoicePdfService.js';
 import { invoiceService } from '../services/invoiceService.js';
+import { paymentExportService } from '../services/paymentExportService.js';
 import { paymentService } from '../services/paymentService.js';
 import { reportService } from '../services/reportService.js';
 import { settingsService } from '../services/settingsService.js';
@@ -10,6 +11,7 @@ import {
   createPaymentSchema,
   discountSchema,
   invoiceListQuery,
+  paymentExportQuery,
   paymentListQuery,
   reportQuery,
   revenueQuery,
@@ -18,7 +20,7 @@ import {
   updateSettingsSchema,
 } from '../validators/schemas.js';
 import { ok, paginated, parse } from '../utils/http.js';
-import { addDays, startOfBusinessDay } from '../utils/time.js';
+import { addDays, businessDate, startOfBusinessDay } from '../utils/time.js';
 
 const range = (from?: string, to?: string) => ({
   from: from ? startOfBusinessDay(from) : undefined,
@@ -77,6 +79,29 @@ export const paymentController = {
   async update(req: Request, res: Response) {
     const { id } = parse(idParamSchema, req.params);
     ok(res, await paymentService.update(id, parse(updatePaymentSchema, req.body)));
+  },
+
+  /**
+   * GET /api/payments/export?from=&to=&method=&search= — Excel workbook with a
+   * Summary sheet and one sheet per date. No dates given → today.
+   */
+  async exportExcel(req: Request, res: Response) {
+    const q = parse(paymentExportQuery, req.query);
+    const today = businessDate();
+    const from = q.from ?? q.to ?? today;
+    const to = q.to ?? q.from ?? today;
+    if ((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000 > 366) {
+      return res.status(400).json({ success: false, message: 'Export at most one year at a time', requestId: req.requestId });
+    }
+    const [result, business] = await Promise.all([
+      paymentService.list({ ...range(from, to), method: q.method, search: q.search }, 1, 50_000),
+      settingsService.get(),
+    ]);
+    const file = await paymentExportService.build(result.rows, from, to, business.business_name);
+    const name = from === to ? `payments_${from}.xlsx` : `payments_${from}_to_${to}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+    res.send(file);
   },
 };
 
